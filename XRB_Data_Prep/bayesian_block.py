@@ -20,13 +20,14 @@ p.add_argument("--subdir",type=str,
                 help="sub directory of output files")
 p.add_argument("--MAXI",type=bool,default=False,
                 help="swift lc or MAXI lc, default is swift")
+p.add_argument("--p", type=float, default = 100)
 args = p.parse_args()
 
 
 def func(x,a):
         return a
 
-def block(lc_path,name,subdir,MAXI=False):
+def block(lc_path,name,subdir,MAXI=False, p=0.01):
         r""" make bayesian blocks. Output file is stored and light curve is plotted.
         Parameters
         ------------
@@ -43,6 +44,8 @@ def block(lc_path,name,subdir,MAXI=False):
         
         """
         
+        if not os.path.exists('./{}/{}/'.format(subdir, p)):
+            os.makedirs('./{}/{}/'.format(subdir, p))
         if not MAXI:
                 #parsing input files
                 light = fits.open(lc_path+name.replace(' ','').replace('_','').replace('+','p')+'.lc.fits')
@@ -54,19 +57,30 @@ def block(lc_path,name,subdir,MAXI=False):
                 t = t[index]
                 rate = rate[index]
                 lc_error = lc_error[index]
-        
+                avg_rate = light[1].header['MEANRATE']
+                ra_deg = light[1].header['RA_OBJ']
+                dec_deg = light[1].header['DEC_OBJ']
+                N = len(rate)
+                sys_error = light[1].data['SYS_ERR'][index]
+                stat_error = light[1].data['STAT_ERR'][index]
+                var = 1/(N-1) * np.sum((rate - avg_rate)**2 / (sys_error**2 + stat_error**2))
+                excess_var = 1/avg_rate * (np.sum(rate - avg_rate)**2 / (N-1) - np.sum(lc_error**2/N))**.5
         elif MAXI:
                 light     = np.genfromtxt(lc_path + '_g_lc_1orb_all.dat' )
                 print (light)
                 t        = light[:,0]
                 rate     = light[:,-2]
                 lc_error = light[:,-1]
-        
         data = {}
         data['MJD']=np.empty(len(t), dtype=[('MJD',float),('rate',float), ('error', float)])
         data['MJD']['MJD'] = t 
         data['MJD']['rate'] = rate 
         data['MJD']['error'] = lc_error 
+        data['var'] = var
+        data['excess_var'] = excess_var
+        
+        print(var, excess_var)
+
 
         # MJD to date 
         t_min = Time(min(data['MJD']['MJD']),format = 'mjd')
@@ -79,14 +93,25 @@ def block(lc_path,name,subdir,MAXI=False):
         years_mjd = years_mjd.mjd
         
         prior  = 1.32+0.577*np.log10(len(data['MJD']['rate'])) #prior from 1207.5578 
-        blocks = bayesian_blocks(t,rate,lc_error, fitness='measures',gamma = np.exp(-prior))  #standard
+        print(prior)
+        blocks = bayesian_blocks(t,rate,lc_error, fitness='measures', ncp_prior= p)  #standard
+        #blocks = bayesian_blocks(t,rate,lc_error, fitness='measures',gamma = np.exp(-prior))  #standard
+        #blocks = bayesian_blocks(t,rate,lc_error, fitness='measures', p0=p)  #standard
         
 
         z=[] # time of blocks   
         y=[] # value of blocks
 
-        file = open('./{}/bin_fit_'.format(subdir)+name.replace(' ','').replace('_',''),'w')
-        filep = open('./{}/bin_outburst_fit_'.format(subdir)+name.replace(' ','').replace('_',''),'w') #file of positive values
+        file = open('./{}/{}/bin_fit_'.format(subdir, p)+name.replace(' ','').replace('_',''),'w')
+        filep = open('./{}/{}/bin_outburst_fit_'.format(subdir, p)+name.replace(' ','').replace('_',''),'w') #file of positive values
+        
+        source_params = {'ra_deg': ra_deg, 'dec_deg' : dec_deg, 'var' : data['var'], 
+                            'excess_var' : data['excess_var'],
+                            'mean_rate' : avg_rate,
+                            }
+        np.save( './{}/{}/source_params_'.format(subdir, p)+name.replace('','').replace('_',''), source_params) #file of positive values
+        
+
 
         #calculate value of each block and save files
         for j in range(len(blocks)-1):
@@ -145,27 +170,31 @@ def block(lc_path,name,subdir,MAXI=False):
         plt.gca().get_legend().get_frame().set_color('w')
         plt.gca().get_legend().get_frame().set_edgecolor('k')
         fig.set_size_inches(32,11)
-        plt.savefig('./{}/'.format(subdir)+name+'.png')
+        plt.savefig('./{}/{}/'.format(subdir, p)+name+'.png')
         plt.close()
 
 if __name__ == "__main__":
     lc_path = args.lc_path
     name    = args.name
-    subdir = args.subdir
+    subdir  = args.subdir
     MAXI    = args.MAXI
-
+    p       = args.p
     print( 'lc_path {}'.format(lc_path))
     print( 'source {}'.format(name))
     print( 'subdir {}'.format(subdir))
 
     if name == 'all':
         #do all 
-        names = np.genfromtxt('swift_select.txt', dtype='str', delimiter = '/n')
+        #names = np.genfromtxt('swift_select.txt', dtype='str', delimiter = '/n')
+        names = np.genfromtxt('names_list.txt', dtype='str', delimiter = '/n')       
         missing = []
         for n in names:
-            n = n.replace(' ', '')
+            #n = n.split(',')[1]
+            #n = n.replace(' ', '')
+            print(n)
+            block(lc_path,n, subdir, MAXI=MAXI, p=p)
             try:
-                block(lc_path,n, subdir, MAXI=MAXI)
+                block(lc_path,n, subdir, MAXI=MAXI, p=p)
             except:
                 print('{} - not found'.format(n))
                 missing.append(n)
@@ -183,4 +212,4 @@ if __name__ == "__main__":
         print(missing)
 
     else:
-        block(lc_path,name,subdir,MAXI=MAXI)
+        block(lc_path,name,subdir,MAXI=MAXI, p=p)

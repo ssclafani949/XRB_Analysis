@@ -33,22 +33,27 @@ def download_file(url, directory):
                 f.write(chunk)
     print(f"Downloaded {local_filename}")
 
+name_list = []
 # Iterate through each row and construct the .lc.fits URL
 for row in rows:
     columns = row.find_all('td')
     if columns:
-        identifier = columns[1].text.strip()  # Assuming the identifier is in the first column
-        identifier = identifier.replace(' ', '')
-        identifier = identifier.replace('+', 'p')
-        print(identifier)
-        fits_url_weak = f'https://swift.gsfc.nasa.gov/results/transients/weak/{identifier}.lc.fits'
-        fits_url_main = f'https://swift.gsfc.nasa.gov/results/transients/{identifier}.lc.fits'
-
-        try:
-            download_file(fits_url_weak, 'fits_files')
-        except requests.HTTPError:
-            print('Usings Alt Link')
-            download_file(fits_url_main, 'fits_files')
-
+        print(columns[5].text)
+        if ('HMXB' in (columns[5].text)) or ('LMXB' in columns[5].text) or ('XRB' in columns[5].text):
+            identifier = columns[1].text.strip()  # Assuming the identifier is in the first column
+            name_list.append(identifier)
+            identifier = identifier.replace(' ', '')
+            identifier = identifier.replace('+', 'p')
+            print(identifier)
+            fits_url_weak = f'https://swift.gsfc.nasa.gov/results/transients/weak/{identifier}.lc.fits'
+            fits_url_main = f'https://swift.gsfc.nasa.gov/results/transients/{identifier}.lc.fits'
+            try:
+                download_file(fits_url_weak, 'fits_files_XRB')
+            except requests.HTTPError:
+                print('Usings Alt Link')
+                download_file(fits_url_main, 'fits_files_XRB')
+with open("names_2.txt", "w") as output:
+    output.write(str(name_list))
+print(name_list)
 print("All files processed.")
 
