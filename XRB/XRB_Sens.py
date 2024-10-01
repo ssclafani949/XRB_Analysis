@@ -1,28 +1,26 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 import csky as cy
-from csky import coord
 import numpy as np
-import pickle
 import pandas as pd
 import datetime
 from submitter import Submitter
 import histlite as hl
 now = datetime.datetime.now
-import matplotlib.pyplot as plt
 import click, sys, os, time
 flush = sys.stdout.flush
+import config as cg
 
+repo, ana_dir, base_dir, job_basedir = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir
 
 #repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
 #ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
 #base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
-repo = cy.selections.Repository()
-ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB/analyses')
-base_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB_stacking_ss_test/')
-source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
-job_basedir = '/scratch/ssclafani/logs/' 
+#repo = cy.selections.Repository()
+#ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB/analyses')
+#base_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB_stacking_ss_test/')
+#source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
+#job_basedir = '/scratch/ssclafani/logs/' 
 
 
 class State (object):
@@ -102,7 +100,7 @@ def setup_ana (state):
     state.ana
 
 @cli.command()
-@click.option('--n-trials', default=1000, type=int)
+@click.option('--n-trials', default=100, type=int)
 @click.option ('-n', '--n-sig', default=0, type=float)
 @click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--fix_gamma', default=None)
@@ -121,95 +119,25 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     random = cy.utils.get_random (seed)
    
     cutoff_GeV = cutoff * 1e3 
-    sources = pd.read_hdf(source_file)
-    source = sources.loc[sources['name_disp'] == name]
-    print(source.dec_deg)
-    print(source.dec_deg)
-    src = cy.utils.Sources(dec = source.dec_deg, ra = source.ra_deg, deg=True)
-
-    #def source(name):
-    #    source_list  = np.genfromtxt("/home/qliu/binaries/analysis/xb_list/list/source_list.txt",dtype=str,delimiter=',')
-    #    names        = [source_list[i][1] for i in range(len(source_list))]                                              
-    #    names_display = [name.replace(' ', '_') for name in names] 
-    #    index        = names.index(name)
-    #    return       cy.utils.Sources(dec=float(source_list[index][5]),ra=float(source_list[index][6]),deg=True)
-    
-    #src          = source(name) 
-    print('Source RA: {} DEC: {}'.format(np.degrees(src.ra[0]), np.degrees(src.dec[0])))
-
-    #lightcurve   = np.genfromtxt("/data/user/qliu/binaries/SwiftBatLC/lc/watchdog_list/outburst/bin_outburst_fit_{}".format(name.replace(' ','').replace('+','p')))
-    #bins         = lightcurve[:,0]
-    #fluxes       = lightcurve[:,1]
-    bins = np.array(source.lc_bins_10)[0]
-    fluxes = np.array(source.lc_values_10)[0]
-    index        = np.where((bins>=ana.mjd_min)& (bins<=ana.mjd_max))[0]
-    print (bins[index])
-    print (ana.mjd_min)
-    print (ana.mjd_max)
-    if len(index) > 2:
-        if index[0] != 0:
-                bins_in_data = np.append(np.append(ana.mjd_min-7.,bins[index]),ana.mjd_max+7.)
-                flux_in_data = np.append(fluxes[index[0]-1],fluxes[index])
-        else:
-                bins_in_data = np.append(bins[index],ana.mjd_max+7.)
-                flux_in_data = fluxes[index] 
-    else: 
-        print('No bins in data')
-        print(index)
     print(seed)
-    print(f'lag: {lag}')
-    print(f'thresh: {thresh}')
-    dir = cy.utils.ensure_dir ('{}/lc/{}'.format (state.base_dir, name))
-    lc = hl.Hist(bins_in_data, flux_in_data)
-    if fix_gamma:
-        print('Fixed gamma: {}'.format(fix_gamma))
-        conf = dict(
-                kind = 'binned',                
-                time='lc',
-                lcs=lc,
-                range_lag=(-7.,7.),
-                #range_thresh=(0.,.5),
-                sig='lc',
-                concat_evs=True,
-                extra_keep = ['energy'],
-                #concat_evs=False,
-                use_grl=True,
-                n_seeds_thresh=20,
-                n_seeds_lag = 20,
-                update_bg = True,
-                sigsub = True,
-                fitter_args = dict(_fmin_method='minuit', gamma = float(fix_gamma)),
-                #inj_class=cy.inj.PointSourceBinnedTimeInjector,
-                #inj_kw=dict( lcs=lc, threshs=thresh,lags=lag, gamma=src_gamma),
-        )
-    else:
-        print('fitting gamma')
-        conf = dict(
-                kind = 'binned',                
-                time='lc',
-                lcs=lc,
-                range_lag=(-7.,7.),
-                #range_thresh=(0.,.5),
-                sig='lc',
-                concat_evs=True,
-                extra_keep = ['energy'],
-                #concat_evs=False,
-                #use_grl=True,
-                n_seeds_thresh=20,
-                #n_seeds_thresh=40,
-                n_seeds_lag = 20,
-                update_bg = True,
-                sigsub = True,
-                #fitter_args=dict(_fmin_method='minuit'),
-                #fitter_args= dict(lag=lag, gamma=src_gamma),
-                #sig_kw = dict(gamma=src_gamma),
-                #cut_n_sigma=3,
-                #inj_class=cy.inj.PointSourceBinnedTimeInjector,
-                #inj_kw=dict( lcs=lc, threshs=thresh,lags=lag, gamma=src_gamma),
-        )
-    inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
-    tr = cy.get_trial_runner(conf=conf,  inj_conf = inj_conf, ana=ana, src=src, flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), mp_cpus=cpus, dir=dir)
-    cy.describe(tr)
+    conf, inj_conf  =  cg.get_ps_config(
+                                ana,
+                                name, 
+                                src_gamma, 
+                                fix_gamma, 
+                                cutoff_GeV, 
+                                lag, 
+                                thresh
+                                ) 
+    tr = cy.get_trial_runner(
+                        conf=conf,
+                        inj_conf = inj_conf, 
+                        ana=ana, 
+                        flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
+                        mp_cpus=cpus, 
+                        dir=dir
+                        )
+
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -265,100 +193,20 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     random = cy.utils.get_random (seed)
    
     cutoff_GeV = cutoff * 1e3 
-    sources = pd.read_hdf(source_file)
-    ras = []
-    decs = []
-    lcs = []
-    for name in sources.name_disp:
-        print(name)
-        source = sources.loc[sources['name_disp'] == name]
-        bins = np.array(source.lc_bins_10)[0]
-        fluxes = np.array(source.lc_values_10)[0]
-        index  = np.where((bins>=ana.mjd_min)& (bins<=ana.mjd_max))[0]
-        if len(index) > 2:
-            ras.append(source.ra_deg)
-            decs.append(source.dec_deg)
-            if index[0] != 0:
-                    bins_in_data = np.append(np.append(ana.mjd_min-7.,bins[index]),ana.mjd_max+7.)
-                    flux_in_data = np.append(fluxes[index[0]-1],fluxes[index])
-            else:
-                    bins_in_data = np.append(bins[index],ana.mjd_max+7.)
-                    flux_in_data = fluxes[index] 
-            lc = hl.Hist(bins_in_data, flux_in_data)
-            lcs.append(lc)
-    print(len(decs), len(ras), len(lcs))
-    src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), deg=True)
-    print(seed)
-    print(f'inj lag: {lag}')
-    print(f'inj thresh: {thresh}')
-    dir = cy.utils.ensure_dir ('{}/lc/{}'.format (state.base_dir, name))
-
-    if fix_gamma:
-        fitter_dict = {}
-        for i in range(len(ras)):
-            num_str = '0000'[0:4 - len(str(i))] + str(i)
-            fitter_dict['lag_' + num_str] = 0.0
-            fitter_dict['thresh_' + num_str] = 0.0
-            fitter_dict['gamma'] = float(fix_gamma)
-        fitter_dict['_fmin_method'] = 'minuit'
-        print('Fixed gamma: {}'.format(fix_gamma))
-        conf = dict(
-                kind = 'binned',                
-                time='lc',
-                lcs=lcs,
-                #range_lag=(-7.,7.),
-                #range_thresh=(0.,.5),
-                sig='lc',
-                concat_evs=True,
-                fitter_args = fitter_dict,
-                extra_keep = ['energy'],
-                #concat_evs=False,
-                use_grl=True,
-                n_seeds_thresh=20,
-                sigsub = True,
-                n_seeds_lag = 20,
-                update_bg = True,
-                inj_class=cy.inj.PointSourceBinnedTimeInjector,
-                inj_kw=dict(src,  lcs=lc, threshs=thresh, lags=lag, gamma=src_gamma),
-        )
-    else:
-        fitter_dict = {}
-        for i in range(len(ras)):
-            num_str = '0000'[0:4 - len(str(i))] + str(i)
-            fitter_dict['lag_' + num_str] = 0.0
-            fitter_dict['thresh_' + num_str] = 0.0
-        fitter_dict['_fmin_method'] = 'minuit'
-        print('fitting gamma')
-        conf = dict(
-                src = src,
-                kind = 'binned',                
-                time='lc',
-                lcs=lcs,
-                range_lag=(-7.,7.),
-                #range_thresh=(0.,.5),
-                sig='lc',
-                #concat_evs=True,
-                extra_keep = ['energy'],
-                #concat_evs=False,
-                #use_grl=True,
-                #n_seeds_thresh=60,
-                n_seeds_lag = 20,
-                update_bg = True,
-                sigsub = True,
-                #gammas = np.arange(0,4.01,.0125),
-                fitter_args = fitter_dict,
-                #fitter_args=dict(_fmin_method='minuit'),
-                #fitter_args= dict(lag=lag, gamma=src_gamma),
-                #sig_kw = dict(gamma=src_gamma),
-                #cut_n_sigma=3,
-                #inj_class=cy.inj.PointSourceBinnedTimeInjector,
-                #inj_kw=dict(src, lcs=lcs, gamma=src_gamma),
-        )
-    inj_conf=dict(lcs=lcs, threshs=np.zeros_like(lcs), lags=np.zeros_like(lcs), flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
-    tr = cy.get_trial_runner(conf=conf,  inj_conf=inj_conf, ana=ana, #flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
+    conf, inj_conf = cg.get_stacking_config(
+                                    ana,
+                                    src_gamma, 
+                                    fix_gamma, 
+                                    thresh, 
+                                    lag
+                                    )
+    tr = cy.get_trial_runner(
+                            conf=conf,  
+                            inj_conf=inj_conf, 
+                            ana=ana,
+                            flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
                                 mp_cpus=cpus, dir=dir)
     t0 = now ()
-    #cy.describe(tr)
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
     trials = tr.get_many_fits (
