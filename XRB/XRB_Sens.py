@@ -15,9 +15,15 @@ import click, sys, os, time
 flush = sys.stdout.flush
 
 
-repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
-ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
-base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
+#repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
+#ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
+#base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
+repo = cy.selections.Repository()
+ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB/analyses')
+base_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB_stacking_ss_test/')
+source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
+job_basedir = '/scratch/ssclafani/logs/' 
+
 
 class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir):
@@ -115,7 +121,7 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     random = cy.utils.get_random (seed)
    
     cutoff_GeV = cutoff * 1e3 
-    sources = pd.read_hdf('/data/i3home/ssclafani/XRB/sources/lc_sources_reselected.hdf')
+    sources = pd.read_hdf(source_file)
     source = sources.loc[sources['name_disp'] == name]
     print(source.dec_deg)
     print(source.dec_deg)
@@ -161,7 +167,7 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                 kind = 'binned',                
                 time='lc',
                 lcs=lc,
-                #range_lag=(-7.,7.),
+                range_lag=(-7.,7.),
                 #range_thresh=(0.,.5),
                 sig='lc',
                 concat_evs=True,
@@ -173,8 +179,8 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                 update_bg = True,
                 sigsub = True,
                 fitter_args = dict(_fmin_method='minuit', gamma = float(fix_gamma)),
-                inj_class=cy.inj.PointSourceBinnedTimeInjector,
-                inj_kw=dict( lcs=lc, threshs=thresh,lags=lag, gamma=src_gamma),
+                #inj_class=cy.inj.PointSourceBinnedTimeInjector,
+                #inj_kw=dict( lcs=lc, threshs=thresh,lags=lag, gamma=src_gamma),
         )
     else:
         print('fitting gamma')
@@ -189,19 +195,20 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                 extra_keep = ['energy'],
                 #concat_evs=False,
                 #use_grl=True,
-                n_seeds_thresh=60,
+                n_seeds_thresh=20,
                 #n_seeds_thresh=40,
-                n_seeds_lag = 60,
+                n_seeds_lag = 20,
                 update_bg = True,
                 sigsub = True,
                 #fitter_args=dict(_fmin_method='minuit'),
                 #fitter_args= dict(lag=lag, gamma=src_gamma),
                 #sig_kw = dict(gamma=src_gamma),
                 #cut_n_sigma=3,
-                inj_class=cy.inj.PointSourceBinnedTimeInjector,
-                inj_kw=dict( lcs=lc, threshs=thresh,lags=lag, gamma=src_gamma),
+                #inj_class=cy.inj.PointSourceBinnedTimeInjector,
+                #inj_kw=dict( lcs=lc, threshs=thresh,lags=lag, gamma=src_gamma),
         )
-    tr = cy.get_trial_runner(conf=conf,  ana=ana, src=src, flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), mp_cpus=cpus, dir=dir)
+    inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
+    tr = cy.get_trial_runner(conf=conf,  inj_conf = inj_conf, ana=ana, src=src, flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), mp_cpus=cpus, dir=dir)
     cy.describe(tr)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
@@ -258,7 +265,7 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     random = cy.utils.get_random (seed)
    
     cutoff_GeV = cutoff * 1e3 
-    sources = pd.read_hdf('/data/i3home/ssclafani/XRB/sources/lc_sources_reselected.hdf')
+    sources = pd.read_hdf(source_file)
     ras = []
     decs = []
     lcs = []
@@ -344,13 +351,12 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                 #fitter_args= dict(lag=lag, gamma=src_gamma),
                 #sig_kw = dict(gamma=src_gamma),
                 #cut_n_sigma=3,
-                inj_class=cy.inj.PointSourceBinnedTimeInjector,
+                #inj_class=cy.inj.PointSourceBinnedTimeInjector,
                 #inj_kw=dict(src, lcs=lcs, gamma=src_gamma),
-                inj_kw=dict(src, lcs=lcs, threshs=thresh, lags=lag, gamma=src_gamma),
         )
-    tr = cy.get_trial_runner(conf=conf,  ana=ana, #flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
+    inj_conf=dict(lcs=lcs, threshs=np.zeros_like(lcs), lags=np.zeros_like(lcs), flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
+    tr = cy.get_trial_runner(conf=conf,  inj_conf=inj_conf, ana=ana, #flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
                                 mp_cpus=cpus, dir=dir)
-    
     t0 = now ()
     #cy.describe(tr)
     print ('Beginning trials at {} ...'.format (t0))
@@ -401,7 +407,7 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
 @pass_state
 def collect_lc_trials (state, fit, hist, n):
     print(state.ana_name)    
-    sources = pd.read_hdf('/data/i3home/ssclafani/XRB/sources/lc_sources_reselected.hdf')
+    sources = pd.read_hdf(source_file)
     names = sources.name_disp
     #names = names[:50]
     #names = np.r_[np.array(names[:10]), ['GX_339_dash_4', 'GX_1_plus_4']]
@@ -495,7 +501,7 @@ def submit_do_lc_trials (
         state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed):
     ana_name = state.ana_name
     T = time.time ()
-    job_basedir = '/data/i3home/ssclafani/logs/' 
+    #job_basedir = '/scratch/ssclafani/logs/' 
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
@@ -509,7 +515,7 @@ def submit_do_lc_trials (
     src_gammas = [src_gamma]
     fix_gammas = [fix_gamma] 
     
-    sources = pd.read_hdf('/data/i3home/ssclafani/XRB/sources/lc_sources_reselected.hdf')
+    sources = pd.read_hdf(source_file)
     names = sources.name_disp[:5]
     #names = ['4U_2206_plus_54', 'Cyg_X_dash_1', 'Cen_X_dash_3', 'Cyg_X_dash_3', 'Sgr_Astar', 'Vela_X_dash_1']
     #names = np.r_[np.array(names[5:])]
@@ -562,7 +568,7 @@ def submit_do_lc_trials (
                                 labels.append (label)
 
     sub.dry = dry
-    sub.submit_condor00 (commands, labels)
+    sub.submit_npx4 (commands, labels)
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
@@ -579,11 +585,11 @@ def submit_do_stacking_trials (
         state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed):
     ana_name = state.ana_name
     T = time.time ()
-    job_basedir = '/data/i3home/ssclafani/logs/' 
+    #job_basedir = '/scratch/ssclafani/logs/' 
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir,  memory=14, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, ncpu=2, memory=13, max_jobs=1000)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -620,7 +626,7 @@ def submit_do_stacking_trials (
                 labels.append (label)
 
     sub.dry = dry
-    sub.submit_condor00 (commands, labels)
+    sub.submit_npx4 (commands, labels)
 
 
 
