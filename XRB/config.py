@@ -35,7 +35,7 @@ elif 'gpu' in hostname:
     elif os.path.exists( '/data/user/'):
         print('I am on NPX')
         repo = cy.selections.Repository()
-        ana_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses'.format(username))                
+        ana_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses'.format(username))
         base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
         ana_dir = '{}/ana'.format (base_dir)
         job_basedir = '/scratch/{}/'.format(username) 
@@ -50,6 +50,8 @@ else:
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/{}/'.format(username) 
     source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
+    submit_cfg_file = 'XRB_Sens/submitter_config_npx'
+
 
 # path at which source catalogs are located
 catalog_dir = os.path.join(
@@ -59,7 +61,6 @@ catalog_dir = os.path.join(
 # Example content of this file:
 #    eval `/cvmfs/icecube.opensciencegrid.org/py2-v3.0.1/setup.sh`
 #    source  ~/path/to/venv/bin/activate
-submit_cfg_file = 'XRB_Sens/submitter_config'
 
 
 

@@ -209,12 +209,12 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                             inj_conf=inj_conf, 
                             ana=ana,
                             flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
-                                mp_cpus=cpus, dir=dir)
+                            dir=dir)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
     trials = tr.get_many_fits (
-        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging)
+        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging, mp_cpus = cpus)
     print(f'TS: {trials.ts}')
     print(f'ns: {trials.ns}')
     print(trials.seed)
@@ -258,12 +258,8 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
 @click.option ('-n', '--n', default=0, type=int)
 @pass_state
 def collect_lc_trials (state, fit, hist, n):
-    print(state.ana_name)    
     sources = pd.read_hdf(source_file)
     names = sources.name_disp
-    #names = names[:50]
-    #names = np.r_[np.array(names[:10]), ['GX_339_dash_4', 'GX_1_plus_4']]
-    #names = ['Cyg_X_dash_1'] 
     kw = {}
     if hist:
         TSD = cy.dists.BinnedTSD
@@ -353,11 +349,10 @@ def submit_do_lc_trials (
         state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed):
     ana_name = state.ana_name
     T = time.time ()
-    #job_basedir = '/scratch/ssclafani/logs/' 
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=9, max_jobs=1000, config = submit_cfg_file)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
