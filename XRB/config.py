@@ -11,16 +11,38 @@ hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
 job_base = 'XRB_baseline_v0.1'
-if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
+if 'condor00' in hostname or 'cobol' in hostname:
     repo = cy.selections.Repository(
-        local_root='/data/i3store/users/ssclafani/data/analyses'.format(username))
+        local_root='/data/i3store/users/analyses')
     ana_dir = cy.utils.ensure_dir(
         '/data/i3store/users/{}/data/analyses'.format(username))
     base_dir = cy.utils.ensure_dir(
         '/data/i3store/users/{}/data/analyses/{}'.format(username, job_base))
     job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
     source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
-
+elif 'gpu' in hostname:
+    if os.path.exists( '/data/i3home/'):
+        print('I am on UMD')
+        repo = cy.selections.Repository(
+            local_root='/data/i3store/users/analyses')
+        ana_dir = cy.utils.ensure_dir(
+            '/data/i3store/users/{}/data/analyses'.format(username))
+        base_dir = cy.utils.ensure_dir(
+            '/data/i3store/users/{}/data/analyses/{}'.format(username, job_base))
+        job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
+        source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
+        submit_cfg_file = 'XRB_Sens/submitter_config_umd'
+    elif os.path.exists( '/data/user/'):
+        print('I am on NPX')
+        repo = cy.selections.Repository()
+        ana_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses'.format(username))                
+        base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
+        ana_dir = '{}/ana'.format (base_dir)
+        job_basedir = '/scratch/{}/'.format(username) 
+        source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
+        submit_cfg_file = 'XRB_Sens/submitter_config_npx'
+    else:
+        print('Could not find direcotry')
 else:
     repo = cy.selections.Repository()
     ana_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses'.format(username))

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH                            
+#export PYTHONPATH=$PYTHONPATH:/data/user/ssclafani/software/meta-projects/combo/DNN/src/skylab
+#export PYTHONPATH=$PYTHONPATH:/data/condor_builds/users/ssclafani/external_software/csky
+#export PYTHONPATH=$PYTHONPATH:/data/condor_builds/users/ssclafani/external_software/histlite
+
+#cUDA paths
+#if [[ -d /usr/local/cuda ]]; then
+#	export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
+#	export PATH=${PATH}:/usr/local/cuda/bin
+#fi
+
+eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.2.1/setup.sh`
+. /data/i3home/ssclafani/venvs/venv-py3-v4.2.1/bin/activate
+

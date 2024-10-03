@@ -2,6 +2,7 @@
 
 import csky as cy
 import numpy as np
+import pickle
 import pandas as pd
 import datetime
 from submitter import Submitter
@@ -10,9 +11,11 @@ now = datetime.datetime.now
 import click, sys, os, time
 flush = sys.stdout.flush
 import config as cg
+import socket
 
-repo, ana_dir, base_dir, job_basedir = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir
+hostname = socket.gethostname()
 
+repo, ana_dir, base_dir, job_basedir, source_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file
 #repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
 #ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
 #base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
@@ -33,6 +36,7 @@ class State (object):
     def ana (self):
         print(self.ana_name)
         if self.ana_name == 'combo':
+            print(repo.local_root)
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             psspec = cy.selections.PSDataSpecs.ps_v4
             ana = cy.get_analysis(repo, 'version-004-p02', psspec, 'version-001-p01', cspec,
@@ -353,18 +357,19 @@ def submit_do_lc_trials (
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=9, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     #lags = np.arange(-6, 6.1, 3)
-    lags = [0, 6] 
+    lags = [0] 
     threshs = [0]
     src_gammas = [src_gamma]
     fix_gammas = [fix_gamma] 
     
-    sources = pd.read_hdf(source_file)
-    names = sources.name_disp[:5]
+    sources = pd.read_hdf(cg.source_file)
+    names = sources.name_disp
+    #names = sources.name_disp[:5]
     #names = ['4U_2206_plus_54', 'Cyg_X_dash_1', 'Cen_X_dash_3', 'Cyg_X_dash_3', 'Sgr_Astar', 'Vela_X_dash_1']
     #names = np.r_[np.array(names[5:])]
     #names = ['XTE_J1855_dash_026']
@@ -416,7 +421,10 @@ def submit_do_lc_trials (
                                 labels.append (label)
 
     sub.dry = dry
-    sub.submit_npx4 (commands, labels)
+    if 'condor' in hostname:
+        sub.submit_condor00 (commands, labels)
+    else:
+        sub.submit_npx4 (commands, labels)
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
@@ -474,7 +482,10 @@ def submit_do_stacking_trials (
                 labels.append (label)
 
     sub.dry = dry
-    sub.submit_npx4 (commands, labels)
+    if 'condor' in hostname:
+        sub.submit_condor00 (commands, labels)
+    else:
+        sub.submit_npx4 (commands, labels)
 
 
 
