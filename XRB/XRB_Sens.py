@@ -555,6 +555,100 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
             np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/sens.npy')
 
 
+@cli.command()
+@click.option ('--fix_gamma', default=None)
+@click.option ('--src_gamma', default=2.0, type=float)
+@click.option ('--nsigma', default=None, type=float)
+@click.option ('--thresh', default=0.0, type=float)
+@click.option ('--lag', default=0.0, type=float)
+@click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
+@click.option ('--cpus', default=1, type=int)
+@click.option ('--save/--nosave', default=False)
+@pass_state
+def plot_stacking_bias ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save=False):
+    import matplotlib.pyplot as plt
+
+    cutoff_GeV = 1e3 * cutoff
+    sigfile = '{}/{}/lc/stacking/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
+    sig = np.load (sigfile, allow_pickle=True)
+    if fix_gamma:
+        sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
+                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+        b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+    else:
+        print('fit gamma')
+        sig_trials = cy.bk.get_best(sig, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'nsig')
+    
+        b = cy.bk.get_best(sig,  'fit_gamma',  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+    if logging:
+        print(b)
+    
+    trials = {0: b}
+    trials.update(sig_trials)
+    n_sigs = [n for n in sorted(trials.keys())]
+    
+    for key in sorted(trials.keys()):
+        trials[key] = trials[key].trials
+    trials = [trials[k] for k in sorted(trials.keys())]
+    
+    for (n_sig, t) in zip(sorted(n_sigs), trials):
+        t['ntrue'] = np.repeat(n_sig, len(t))
+    
+    allt = cy.utils.Arrays.concatenate(trials)
+    
+    if logging:
+        for ntrue in sorted(np.unique(allt['ntrue'])):
+            mask = allt['ntrue'] == ntrue
+            median = np.median(allt[mask].ns)
+            gamma = np.median(allt[mask].gamma)
+            print(f'Inj: {ntrue:3.2f}   | Median: {median:.2f}   | gamma {gamma:.2f}')
+ 
+    if fix_gamma:
+        fig, ax = plt.subplots(1, 1, figsize=(4,3))
+    else:
+        fig, axs = plt.subplots(1, 2, figsize=(6,3))
+    
+    dns = np.mean(np.diff(n_sigs))
+    ns_bins = np.r_[n_sigs - 0.5*dns, n_sigs[-1] + 0.5*dns]
+    expect_kw = dict(color='C0', ls='--', lw=1, zorder=-10)
+    if not fix_gamma:
+        expect_gamma = src_gamma 
+        ax = axs[0]
+        ax.set_xlim(0,500)
+        ax.set_ylim(0,500)
+    else:
+        ax.set_xlim(0,200)
+        ax.set_ylim(0,200)
+    h = hl.hist((allt.ntrue, allt.ns), bins=(ns_bins, 70))
+    hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+    ax.set_xlabel(r'n$_{inj}$')
+    ax.set_ylabel(r'n$_s$')
+    ax.set_aspect('equal')
+    
+    lim = ns_bins[[0, -1]]
+    ax.set_xlim(ax.set_ylim(lim))
+    ax.plot(lim, lim, **expect_kw)
+    ax.set_aspect('equal')
+
+
+    if not fix_gamma:
+        ax = axs[1]
+        h = hl.hist((allt.ntrue, allt.gamma), bins=(ns_bins, 70))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+        ax.axhline(expect_gamma, **expect_kw)
+        ax.set_xlim(axs[0].get_xlim())
+        ax.set_xlabel(r'n$_{inj}$')
+        ax.set_ylabel(r'$\gamma$')
+        #ax.set_aspect('equal')
+
+    plt.tight_layout()
+    if save:
+        np.save(cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/stacking/plots/fit_gamma/src_gamma_{src_gamma}/bias.png'))
+                
+
 if __name__ == '__main__':
     exe_t0 = now ()
     print ('c7: start at {} .'.format (exe_t0))
