@@ -482,7 +482,77 @@ def submit_do_stacking_trials (
     else:
         sub.submit_npx4 (commands, labels)
 
-
+@cli.command()
+@click.option ('--fix_gamma', default=None)
+@click.option ('--src_gamma', default=2.0, type=float)
+@click.option ('--nsigma', default=None, type=float)
+@click.option ('--thresh', default=0.0, type=float)
+@click.option ('--lag', default=0.0, type=float)
+@click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
+@click.option ('--cpus', default=1, type=int)
+@click.option ('--save/--nosave', default=False)
+@pass_state
+def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save=False):
+    ana = state.ana
+    cutoff_GeV = 1e3 * cutoff
+    sigfile = '{}/{}/lc/stacking/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
+    sig = np.load (sigfile, allow_pickle=True)
+    if fix_gamma:
+        sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
+                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+        b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+    else:
+        print('fit gamma')
+        sig_trials = cy.bk.get_best(sig, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'nsig')
+    
+        b = cy.bk.get_best(sig,  'fit_gamma',  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+    if logging:
+        print(b)
+    conf, inj_conf = cg.get_stacking_config(
+                                    ana,
+                                    src_gamma, 
+                                    fix_gamma, 
+                                    thresh, 
+                                    lag
+                                    )
+    tr = cy.get_trial_runner(
+                            conf=conf,  
+                            inj_conf=inj_conf, 
+                            ana=ana,
+                            flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
+                            dir=dir)
+        # determine ts threshold
+    if nsigma !=None:
+        beta = 0.5
+        print('sigma = {}'.format(nsigma))
+        ts = b.isf_nsigma(nsigma)
+    else:
+        print('Getting sensitivity')
+        beta = 0.9
+        ts = b.median()
+    
+    # include background trials in calculation
+    trials = {0: b}
+    trials.update(sig_trials)
+    for key in trials.keys():
+        trials[key] = trials[key].trials
+    # get number of signal events
+    # (arguments prevent additional trials from being run)
+    result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=logging, trials=trials)
+    
+    f = tr.to_E2dNdE(result['n_sig'], E0=1, unit=1e3)
+    if logging:
+        print(ts, beta, result['n_sig'], f)
+    print(f) 
+    print(result['n_sig'])
+    if save:
+        if nsigma:
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/{nsigma}sigma_dp.npy')
+        else:
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/sens.npy')
 
 
 if __name__ == '__main__':
