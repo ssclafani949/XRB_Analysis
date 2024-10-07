@@ -189,20 +189,23 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--weight',  default='equal')
 @pass_state
-def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff, cpus, logging=True):
+def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff, cpus, weight, logging = True):
     ana = state.ana
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed)
    
     cutoff_GeV = cutoff * 1e3 
+
     conf, inj_conf = cg.get_stacking_config(
                                     ana,
                                     src_gamma, 
                                     fix_gamma, 
                                     thresh, 
-                                    lag
+                                    lag,
+                                    weight
                                     )
     tr = cy.get_trial_runner(
                             conf=conf,  
@@ -229,22 +232,22 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     if n_sig:
         if fix_gamma:
             out_dir = cy.utils.ensure_dir (
-                    '{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
+                    '{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/nsig/{}'.format (
                         state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff,
                           n_sig))
         else:
             out_dir = cy.utils.ensure_dir (
-                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
-                    state.base_dir, state.ana_name,  src_gamma, thresh, lag, cutoff,
+                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/nsig/{}'.format (
+                    state.base_dir, state.ana_name,  src_gamma, thresh, lag, cutoff, weight,
                       n_sig))
     else:        
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
-                state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff))
+            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking//trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/bg'.format (
+                state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, weight))
  
         else:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
-                state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff))
+            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/bg'.format (
+                state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight))
 
     out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
         out_dir, n_trials, seed)
@@ -431,9 +434,10 @@ def submit_do_lc_trials (
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
+@click.option ('--weight', default='equal')
 @pass_state
 def submit_do_stacking_trials (
-        state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed):
+        state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed, weight):
     ana_name = state.ana_name
     T = time.time ()
     #job_basedir = '/scratch/ssclafani/logs/' 
@@ -444,19 +448,18 @@ def submit_do_stacking_trials (
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
-    
     if fix_gamma:
         for n_sig in n_sigs:
             for i in range (n_jobs):
                 s = i + seed
                 fmt = ' {} {} do-stacking-trials --fix_gamma={} --src_gamma={} --cutoff {} --n-trials={}' \
-                        ' --n-sig={}' \
+                        ' --n-sig={} --weight={}' \
                         ' --{} --seed={}'
                 command = fmt.format ( this_script, state.state_args, fix_gamma, src_gamma, cutoff, n_trials,
-                                      n_sig, poisson_str, s)
+                                      n_sig, weight, poisson_str, s)
                 fmt = 'xrb_fix_gamma_{}__trials_{:07d}__n_sig_{:08.3f}__' \
-                        'src_gamma_{:.3f}__cutoff_{}seed_{:04d}'
-                label = fmt.format ( fix_gamma, n_trials, n_sig, src_gamma,
+                        'src_gamma_{:.3f}__{}_cutoff_{}seed_{:04d}'
+                label = fmt.format ( fix_gamma, n_trials, n_sig, src_gamma, weight,
                                     cutoff,  s)
                 commands.append (command)
                 labels.append (label)
@@ -465,13 +468,13 @@ def submit_do_stacking_trials (
             for i in range (n_jobs):
                 s = i + seed
                 fmt = '{} {} do-stacking-trials  --src_gamma={} --n-trials={}' \
-                        ' --n-sig={}' \
+                        ' --n-sig={} --weight={}' \
                         ' --{} --seed={}'
                 command = fmt.format ( this_script, state.state_args,  src_gamma, n_trials,
-                                      n_sig,  poisson_str, s)
-                fmt = 'xrb_stacking_fit_gamma__trials_{:07d}__n_sig_{:08.3f}__' \
+                                      n_sig, weight, poisson_str, s)
+                fmt = 'xrb_stacking_fit_gamma__trials_{:07d}__n_sig_{:08.3f}__{}' \
                         'src_gamma_{:.3f}_seed_{:04d}'
-                label = fmt.format (n_trials, n_sig, src_gamma, s)
+                label = fmt.format (n_trials, n_sig, weight, src_gamma, s)
                 print(label)
                 commands.append (command)
                 labels.append (label)
@@ -490,25 +493,27 @@ def submit_do_stacking_trials (
 @click.option ('--lag', default=0.0, type=float)
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--weight', default = 'equal')
 @click.option ('--save/--nosave', default=False)
 @pass_state
-def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save=False):
+def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, weight, logging=True, save=False):
     ana = state.ana
     cutoff_GeV = 1e3 * cutoff
     sigfile = '{}/{}/lc/stacking/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
     sig = np.load (sigfile, allow_pickle=True)
+    print(sig)
     if fix_gamma:
         sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
         b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
     else:
         print('fit gamma')
         sig_trials = cy.bk.get_best(sig, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'nsig')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
     
         b = cy.bk.get_best(sig,  'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
     if logging:
         print(b)
     conf, inj_conf = cg.get_stacking_config(
@@ -516,8 +521,8 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
                                     src_gamma, 
                                     fix_gamma, 
                                     thresh, 
-                                    lag
-                                    )
+                                    lag,
+                                    weight)
     tr = cy.get_trial_runner(
                             conf=conf,  
                             inj_conf=inj_conf, 
@@ -548,24 +553,25 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
         print(ts, beta, result['n_sig'], f)
     print(f) 
     print(result['n_sig'])
+    result['flux_E2dNdE_1TeV'] = f
     if save:
         if nsigma:
-            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/{nsigma}sigma_dp.npy')
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/{nsigma}sigma_dp.npy', result)
         else:
-            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/sens.npy')
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/sens.npy', result)
 
 
 @cli.command()
 @click.option ('--fix_gamma', default=None)
 @click.option ('--src_gamma', default=2.0, type=float)
-@click.option ('--nsigma', default=None, type=float)
 @click.option ('--thresh', default=0.0, type=float)
 @click.option ('--lag', default=0.0, type=float)
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--weight', default = 'equal')
 @click.option ('--save/--nosave', default=False)
 @pass_state
-def plot_stacking_bias ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save=False):
+def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, weight, logging=True, save=False):
     import matplotlib.pyplot as plt
 
     cutoff_GeV = 1e3 * cutoff
@@ -573,16 +579,16 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
     sig = np.load (sigfile, allow_pickle=True)
     if fix_gamma:
         sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
         b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
     else:
         print('fit gamma')
         sig_trials = cy.bk.get_best(sig, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'nsig')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
     
         b = cy.bk.get_best(sig,  'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'bg')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
     if logging:
         print(b)
     
@@ -646,7 +652,8 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
 
     plt.tight_layout()
     if save:
-        np.save(cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/stacking/plots/fit_gamma/src_gamma_{src_gamma}/bias.png'))
+        save_dir = cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/stacking/plots/fit_gamma/src_gamma_{src_gamma}/')
+        plt.savefig(f'{save_dir}/bias_g{src_gamma:.2f}_{weight}.png')
                 
 
 if __name__ == '__main__':

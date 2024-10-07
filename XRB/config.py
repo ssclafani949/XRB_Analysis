@@ -136,11 +136,12 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh):
  
     return conf, inj_conf
 
-def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag):
+def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
     sources = pd.read_hdf(source_file)
     ras = []
     decs = []
     lcs = []
+    flux_weight = []
     for name in sources.name_disp:
         print(name)
         source = sources.loc[sources['name_disp'] == name]
@@ -150,6 +151,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag):
         if len(index) > 2:
             ras.append(source.ra_deg)
             decs.append(source.dec_deg)
+            flux_weight.append(source.mean_rate)
             if index[0] != 0:
                     bins_in_data = np.append(np.append(ana.mjd_min-7.,bins[index]),ana.mjd_max+7.)
                     flux_in_data = np.append(fluxes[index[0]-1],fluxes[index])
@@ -159,7 +161,12 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag):
             lc = hl.Hist(bins_in_data, flux_in_data)
             lcs.append(lc)
     print(len(decs), len(ras), len(lcs))
+    if weight == 'equal':
+        src_weight = 1./(len(decs)) * np.ones_like(decs)
+    elif weight == 'flux':
+        src_weight = np.concatenate(flux_weight / np.sum(flux_weight))
     src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), deg=True)
+
     print(f'inj lag: {lag}')
     print(f'inj thresh: {thresh}')                                                                 
     dir = cy.utils.ensure_dir ('{}/lc/{}'.format (base_dir, name))
