@@ -721,8 +721,8 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
     if not fix_gamma:
         expect_gamma = src_gamma 
         ax = axs[0]
-        ax.set_xlim(0,500)
-        ax.set_ylim(0,500)
+        ax.set_xlim(0,100)
+        ax.set_ylim(0,100)
     else:
         ax.set_xlim(0,200)
         ax.set_ylim(0,200)
@@ -747,10 +747,11 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
         ax.set_xlabel(r'n$_{inj}$')
         ax.set_ylabel(r'$\gamma$')
         #ax.set_aspect('equal')
-
+    plt.suptitle(f'Weight {weight} $\gamma$={src_gamma:.2}')
     plt.tight_layout()
     if save:
         save_dir = cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/stacking/plots/fit_gamma/src_gamma_{src_gamma}/')
+        print(f'Saving to ... {save_dir}')
         plt.savefig(f'{save_dir}/bias_g{src_gamma:.2f}_{weight}.png')
                 
 @cli.command()
