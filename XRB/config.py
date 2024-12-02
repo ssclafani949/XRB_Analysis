@@ -10,8 +10,9 @@ import histlite as hl
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
-job_base = 'XRB_baseline_v0.1'
+job_base = 'XRB_baseline_v0.2'
 if 'condor00' in hostname or 'cobol' in hostname:
+    submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
     repo = cy.selections.Repository(
         local_root='/data/i3store/users/analyses')
     ana_dir = cy.utils.ensure_dir(
@@ -31,7 +32,7 @@ elif 'gpu' in hostname:
             '/data/i3store/users/{}/data/analyses/{}'.format(username, job_base))
         job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
         source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
-        submit_cfg_file = 'XRB_Sens/submitter_config_umd'
+        submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
     elif os.path.exists( '/data/user/'):
         print('I am on NPX')
         repo = cy.selections.Repository()
@@ -129,6 +130,7 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh):
             n_seeds_thresh=20,
             n_seeds_lag = 20,
             update_bg = True,
+            fitter_args = dict(_fmin_method='minuit'),
             sigsub = True,
         )
     inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))

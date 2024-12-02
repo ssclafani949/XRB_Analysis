@@ -16,6 +16,7 @@ import socket
 hostname = socket.gethostname()
 
 repo, ana_dir, base_dir, job_basedir, source_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file
+submit_cfg_file = cg.submit_cfg_file
 #repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
 #ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
 #base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
@@ -367,11 +368,6 @@ def submit_do_lc_trials (
     
     sources = pd.read_hdf(cg.source_file)
     names = sources.name_disp
-    #names = sources.name_disp[:5]
-    #names = ['4U_2206_plus_54', 'Cyg_X_dash_1', 'Cen_X_dash_3', 'Cyg_X_dash_3', 'Sgr_Astar', 'Vela_X_dash_1']
-    #names = np.r_[np.array(names[5:])]
-    #names = ['XTE_J1855_dash_026']
-    #names = ['Cyg_X_dash_1']
     if fix_gamma:
         for name in names:
             for src_gamma in src_gammas:
@@ -652,7 +648,7 @@ def find_lc_nsig(
                         if nsigma:
                             np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/{nsigma}sigma_dp.npy', result)
                         else:
-                            np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}sens.npy', result)
+                            np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy', result)
                 except:
                     pass 
         if save:
@@ -763,119 +759,143 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
 @click.option ('--save/--nosave', default=False)
+@click.option ('--sens/--nosens', default=False)
 @pass_state
 def plot_lc_bias (
     state, name, fix_gamma, src_gamma,  thresh, lag, cutoff, cpus,
-    logging=True, save= False):
+    logging=True, save= False, sens=False):
     import matplotlib.pyplot as plt
 
     cutoff_GeV = 1e3 * cutoff
     sigfile = '{}/{}/lc/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
     sig = np.load (sigfile, allow_pickle=True)
-    if fix_gamma:
-        sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
-        b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
-    else:
-        print('fit gamma')
-        sig_trials = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'src_gamma_{}'.format(src_gamma), 
-                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
-        b = cy.bk.get_best(sig, 'name', name, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff_GeV), 'bg')
-    if logging:
-        print(b)
-    trials = {0: b}
-    trials.update(sig_trials)
-    n_sigs = [n for n in sorted(trials.keys())]
-    
-    for key in sorted(trials.keys()):
-        trials[key] = trials[key].trials
-        #trials['ntrue'] = trials[key]
-    trials = [trials[k] for k in sorted(trials.keys())]
-    print(trials)
-    for (n_sig, t) in zip(sorted(n_sigs), trials):
-        t['ntrue'] = np.repeat(n_sig, len(t))
-    allt = cy.utils.Arrays.concatenate(trials)
+
+    def get_bias(name, fix_gamma, src_gamma, thresh, lag, cutoff, cpus, sens):
+        if fix_gamma:
+            sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
+                                                    'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
+            b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
+                                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
+        else:
+            print('fit gamma')
+ 
+            sig_trials = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'src_gamma_{}'.format(src_gamma), 
+                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+            b = cy.bk.get_best(sig, 'name', name, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
+                            'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff_GeV), 'bg')
+        if logging:
+            print(b)
+        trials = {0: b}
+        trials.update(sig_trials)
+        n_sigs = [n for n in sorted(trials.keys())]
         
-    if logging:
-        for ntrue in sorted(np.unique(allt['ntrue'])):
-            mask = allt['ntrue'] == ntrue
-            median = np.median(allt[mask].ns)
-            gamma = np.median(allt[mask].gamma)
-            lag = np.median(allt[mask].lag)
-            print(f'Inj: {ntrue:3.2f}   | Median: {median:.2f}   | gamma {gamma:.2f} | lag {lag:.2f}')
+        for key in sorted(trials.keys()):
+            trials[key] = trials[key].trials
+            #trials['ntrue'] = trials[key]
+        trials = [trials[k] for k in sorted(trials.keys())]
+        print(trials)
+        for (n_sig, t) in zip(sorted(n_sigs), trials):
+            t['ntrue'] = np.repeat(n_sig, len(t))
+        allt = cy.utils.Arrays.concatenate(trials)
+            
+        if logging:
+            for ntrue in sorted(np.unique(allt['ntrue'])):
+                mask = allt['ntrue'] == ntrue
+                median = np.median(allt[mask].ns)
+                gamma = np.median(allt[mask].gamma)
+                l = np.median(allt[mask].lag)
+                print(f'Inj: {ntrue:3.2f}   | Median: {median:.2f}   | gamma {gamma:.2f} | lag {lag:.2f}')
 
 
-    fig, axs = plt.subplots(1, 4, figsize=(12,3))
+        fig, axs = plt.subplots(1, 4, figsize=(12,3))
 
-    name_disp = name.replace('_plus_', '+')
-    name_disp = name_disp.replace('_dash_', '-')
-    name_disp = name_disp.replace('_', ' ')
-    
-    fig.suptitle(name_disp)
-    print(n_sigs)
-    print(allt)
-    
-    dns = np.mean(np.diff(n_sigs))
-    ns_bins = np.r_[n_sigs - 0.5*dns, n_sigs[-1] + 0.5*dns]
-    print(n_sigs)
-    print(ns_bins)
-    expect_kw = dict(color='C0', ls='--', lw=1, zorder=-10)
-    expect_gamma = src_gamma
-    expect_thresh = thresh
-    expect_lag = lag
-    
-    ax = axs[0]
-    h = hl.hist((allt.ntrue, allt.ns), bins=(ns_bins, 70))
-    hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
-    ax.set_xlabel(r'n$_{inj}$')
-    ax.set_ylabel(r'n$_s$')
-    ax.set_aspect('equal')
-    
-    lim = ns_bins[[0, -1]]
-    ax.set_xlim(ax.set_ylim(lim))
-    ax.plot(lim, lim, **expect_kw)
-    ax.set_aspect('equal')
-    ax.set_xlim(0,60)
-    ax.set_ylim(0,60)
+        name_disp = name.replace('_plus_', '+')
+        name_disp = name_disp.replace('_dash_', '-')
+        name_disp = name_disp.replace('_', ' ')
+        
+        fig.suptitle(name_disp)
+        print(n_sigs)
+        print(allt)
+        
+        dns = np.mean(np.diff(n_sigs))
+        ns_bins = np.r_[n_sigs - 0.5*dns, n_sigs[-1] + 0.5*dns]
+        print(n_sigs)
+        print(ns_bins)
+        expect_kw = dict(color='C0', ls='--', lw=1, zorder=-10)
+        expect_gamma = src_gamma
+        expect_thresh = thresh
+        expect_lag = lag
+        
+        ax = axs[0]
+        h = hl.hist((allt.ntrue, allt.ns), bins=(ns_bins, 70))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+        ax.set_xlabel(r'n$_{inj}$')
+        ax.set_ylabel(r'n$_s$')
+        ax.set_aspect('equal')
+        
+        lim = ns_bins[[0, -1]]
+        ax.set_xlim(ax.set_ylim(lim))
+        ax.plot(lim, lim, **expect_kw)
+        ax.set_aspect('equal')
+        ax.set_xlim(0,20)
+        ax.set_ylim(0,20)
 
-    ax = axs[1]
-    h = hl.hist((allt.ntrue, allt.gamma), bins=(ns_bins, 70))
-    hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
-    ax.axhline(expect_gamma, **expect_kw)
-    ax.set_xlim(axs[0].get_xlim())
-    ax.set_xlabel(r'n$_{inj}$')
-    ax.set_ylabel(r'$\gamma$')
-    #ax.set_aspect('equal')
-    
-    ax = axs[2]
-    h = hl.hist((allt.ntrue, allt.lag), bins=(ns_bins, 70))
-    hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
-    ax.axhline(expect_lag, **expect_kw)
-    ax.set_xlim(axs[0].get_xlim())
-    ax.set_xlabel(r'n$_{inj}$')
-    ax.set_ylabel(r'lag')
-    #ax.set_aspect('equal')
-    
-    ax = axs[3]
-    h = hl.hist((allt.ntrue, allt.thresh), bins=(ns_bins, 70))
-    hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
-    ax.axhline(expect_thresh, **expect_kw)
-    ax.set_xlim(axs[0].get_xlim())
-    ax.set_xlabel(r'n$_{inj}$')
-    ax.set_ylabel(r'threshold')
-    #ax.set_aspect('equal')
-    #for ax in axs:
-    #    ax.set_xlabel(r'$n_\text{inj}$')
-    #    ax.grid()
-    #axs[0].set_ylabel(r'$n_s$')
-    #axs[1].set_ylabel(r'$\gamma$')
+        ax = axs[1]
+        h = hl.hist((allt.ntrue, allt.gamma), bins=(ns_bins, 70))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+        ax.axhline(expect_gamma, **expect_kw)
+        ax.set_xlim(axs[0].get_xlim())
+        ax.set_xlabel(r'n$_{inj}$')
+        ax.set_ylabel(r'$\gamma$')
+        ax.set_xlim(0,20)
+        #ax.set_aspect('equal')
+        
+        ax = axs[2]
+        h = hl.hist((allt.ntrue, allt.lag), bins=(ns_bins, 70))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+        ax.axhline(expect_lag, **expect_kw)
+        ax.set_xlim(axs[0].get_xlim())
+        ax.set_xlabel(r'n$_{inj}$')
+        ax.set_ylabel(r'lag')
+        ax.set_xlim(0,20)
+        #ax.set_aspect('equal')
+        
+        ax = axs[3]
+        h = hl.hist((allt.ntrue, allt.thresh), bins=(ns_bins, 70))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+        ax.axhline(expect_thresh, **expect_kw)
+        ax.set_xlim(axs[0].get_xlim())
+        ax.set_xlabel(r'n$_{inj}$')
+        ax.set_ylabel(r'threshold')
+        ax.set_xlim(0,20)
+        #ax.set_aspect('equal')
+        #for ax in axs:
+        #    ax.set_xlabel(r'$n_\text{inj}$')
+        #    ax.grid()
+        #axs[0].set_ylabel(r'$n_s$')
+        #axs[1].set_ylabel(r'$\gamma$')
+        if sens:
+            sens_file = f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy'
+            result = np.load(sens_file, allow_pickle = True)[()]
+            for ax in axs:
+                ax.axvline(result['n_sig'], ls = '--')
+        plt.tight_layout()  
+        if save:
+            save_dir = cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/plots/{name}/fit_gamma/src_gamma_{src_gamma}/')
+            plt.savefig(f'{save_dir}/{name}_bias_g{src_gamma:.2f}_l{lag:.2f}_t{thresh}.png')
 
-    plt.tight_layout()  
-    if save:
-        save_dir = cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/plots/{name}/fit_gamma/src_gamma_{src_gamma}/')
-        plt.savefig(f'{save_dir}/bias_g{src_gamma:.2f}_l{lag}_t{thresh}.png')
+    if not name:
+        sources = pd.read_hdf(cg.source_file)
+        for n in sources.name_disp:
+            print(n)
+            try:
+                get_bias(n, fix_gamma, src_gamma, thresh, lag, cutoff, cpus, sens)
+            except(AttributeError):
+                print('MISSING...')
+                pass
+    else:
+        get_bias(name, fix_gamma, src_gamma, thresh, lag, cutoff, cpus)
+
                 
 
 if __name__ == '__main__':
