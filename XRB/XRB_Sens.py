@@ -39,8 +39,8 @@ class State (object):
         if self.ana_name == 'combo':
             print(repo.local_root)
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
-            psspec = cy.selections.PSDataSpecs.ps_v4
-            ana = cy.get_analysis(repo, 'version-004-p02', psspec, 'version-001-p01', cspec,
+            psspec = cy.selections.PSDataSpecs.ps_v4[3:]
+            ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
                         dir=self.ana_dir)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
@@ -118,7 +118,8 @@ def setup_ana (state):
 @click.option ('--cpus', default=1, type=int)
 @click.option ('--save_trials/--nosave_trials', default=False)
 @pass_state
-def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff,  cpus, logging=True):
+def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed,
+cutoff,  cpus, save_trials = False, logging=True):
     ana = state.ana
     if seed is None:
         seed = int (time.time () % 2**32)

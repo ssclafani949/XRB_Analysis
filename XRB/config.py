@@ -10,7 +10,7 @@ import histlite as hl
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
-job_base = 'XRB_baseline_v0.2'
+job_base = 'XRB_baseline_v0.3'
 if 'condor00' in hostname or 'cobol' in hostname:
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
     repo = cy.selections.Repository(
