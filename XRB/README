@@ -1,0 +1,13 @@
+This analysis peforms stacked or idividual source searches for x-ray binary sources.
+The main script XRB_Sens.py performs all trials, collects, calculated sensitivities and discovery 
+potential and plots biases.
+inj_test.py is used to inject at one source and recover at other sources.  This is to test source
+overlap.
+
+Trials are saved to the base_directory based on version number:
+
+version XRB_baseline_v0.1 - Initial tests with csky main
+version XRB_baseline_v0.2 - Tests with branch with time-dependant stacking fixes
+version XRB_baseline_v0.3 - Tests with only IC86 - swapping the lightcurves to the cropped version
+and using an additional two years of DNNCascades.
+
