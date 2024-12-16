@@ -135,7 +135,7 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh):
         )
     inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
 
- 
+    del sources, lc, 
     return conf, inj_conf
 
 def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):

@@ -116,6 +116,7 @@ def setup_ana (state):
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--save_trials/--nosave_trials', default=False)
 @pass_state
 def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff,  cpus, logging=True):
     ana = state.ana
@@ -758,6 +759,7 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
 @click.option ('--lag', default=0.0, type=float)
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--logging/--nologging', default=True)
 @click.option ('--save/--nosave', default=False)
 @click.option ('--sens/--nosens', default=False)
 @pass_state
@@ -837,8 +839,8 @@ def plot_lc_bias (
         ax.set_xlim(ax.set_ylim(lim))
         ax.plot(lim, lim, **expect_kw)
         ax.set_aspect('equal')
-        ax.set_xlim(0,20)
-        ax.set_ylim(0,20)
+        ax.set_xlim(0,50)
+        ax.set_ylim(0,50)
 
         ax = axs[1]
         h = hl.hist((allt.ntrue, allt.gamma), bins=(ns_bins, 70))
@@ -847,7 +849,7 @@ def plot_lc_bias (
         ax.set_xlim(axs[0].get_xlim())
         ax.set_xlabel(r'n$_{inj}$')
         ax.set_ylabel(r'$\gamma$')
-        ax.set_xlim(0,20)
+        ax.set_xlim(0,50)
         #ax.set_aspect('equal')
         
         ax = axs[2]
@@ -857,7 +859,7 @@ def plot_lc_bias (
         ax.set_xlim(axs[0].get_xlim())
         ax.set_xlabel(r'n$_{inj}$')
         ax.set_ylabel(r'lag')
-        ax.set_xlim(0,20)
+        ax.set_xlim(0,50)
         #ax.set_aspect('equal')
         
         ax = axs[3]
@@ -867,7 +869,7 @@ def plot_lc_bias (
         ax.set_xlim(axs[0].get_xlim())
         ax.set_xlabel(r'n$_{inj}$')
         ax.set_ylabel(r'threshold')
-        ax.set_xlim(0,20)
+        ax.set_xlim(0,50)
         #ax.set_aspect('equal')
         #for ax in axs:
         #    ax.set_xlabel(r'$n_\text{inj}$')
@@ -882,6 +884,8 @@ def plot_lc_bias (
         plt.tight_layout()  
         if save:
             save_dir = cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/plots/{name}/fit_gamma/src_gamma_{src_gamma}/')
+            if logging:
+                print(f'saving... {save_dir}')
             plt.savefig(f'{save_dir}/{name}_bias_g{src_gamma:.2f}_l{lag:.2f}_t{thresh}.png')
 
     if not name:
@@ -894,7 +898,7 @@ def plot_lc_bias (
                 print('MISSING...')
                 pass
     else:
-        get_bias(name, fix_gamma, src_gamma, thresh, lag, cutoff, cpus)
+        get_bias(name, fix_gamma, src_gamma, thresh, lag, cutoff, cpus, sens)
 
                 
 
