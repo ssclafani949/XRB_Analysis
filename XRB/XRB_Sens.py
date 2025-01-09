@@ -382,7 +382,7 @@ def submit_do_lc_trials (
                                     #fmt = '{} --ana-dir \'\' --base-dir={} do-ps-trials --dec={:+08.3f} --n-trials={}'
                                     fmt = ' {} {} do-lc-trials --name {} --fix_gamma={} --src_gamma={} --cutoff {} --n-trials={}' \
                                             ' --n-sig={} --thresh={} --lag={}' \
-                                            ' --{} --seed={}'
+                                            ' --{} --seed={} --save'
                                     command = fmt.format ( this_script, state.state_args, name, fix_gamma, src_gamma, cutoff, n_trials,
                                                           n_sig, thresh, lag, poisson_str, s)
                                     fmt = 'xrb{}_fix_gamma_{}__trials_{:07d}__n_sig_{:08.3f}__' \
@@ -576,84 +576,91 @@ def find_lc_nsig(
     cutoff_GeV = 1e3 * cutoff
     sigfile = '{}/{}/lc/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
 
-    if not name:
+    if name:
+        name_list = [name]
+    else:
         sens = {}
         sources = pd.read_hdf(cg.source_file)
-        for name in sources.name_disp:
-            sig = np.load (sigfile, allow_pickle=True)
-            print(name)
-            print(sig['name'][name])
-            if fix_gamma:
-                if sig['name'][name]:
-                    sig_trials = cy.bk.get_best(sig, 'name', name, 'fix_gamma_{}'.format(fix_gamma), 'src_gamma_{}'.format(src_gamma),
-                                            'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
-                    try:
-                        b = cy.bk.get_best(sig, 'name', name, 'fix_gamma_{}'.format(fix_gamma), 'src_gamma_{}'.format(src_gamma),
-                                            'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'bg')
-                    except:
-                        print( 0,0)
-                else:
-                    print( 0, 0)
-            else:
-                print('fit gamma')
-                try: 
-                    sig_trials = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'src_gamma_{}'.format(src_gamma), 
-                                'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
-                    b = cy.bk.get_best(sig, 'name', name, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff_GeV), 'bg')
-                    if logging:
-                        print(b)
-                    conf, inj_conf  =  cg.get_ps_config(
-                                                ana,
-                                                name, 
-                                                src_gamma, 
-                                                fix_gamma, 
-                                                cutoff_GeV, 
-                                                lag, 
-                                                thresh
-                                                ) 
-                    tr = cy.get_trial_runner(
-                                        conf=conf,
-                                        inj_conf = inj_conf, 
-                                        ana=ana, 
-                                        flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
-                                        mp_cpus=cpus, 
-                                        dir=dir
-                                        )
-                    if nsigma !=None:
-                        beta = 0.5
-                        print('sigma = {}'.format(nsigma))
-                        ts = b.isf_nsigma(nsigma)
-                    else:
-                        print('Getting sensitivity')
-                        beta = 0.9
-                        ts = b.median()
-                    #print(ts)
-
-                    # include background trials in calculation
-                    trials = {0: b}
-                    trials.update(sig_trials)
-                    for key in trials.keys():
-                        trials[key] = trials[key].trials
-                    # get number of signal events
-                    # (arguments prevent additional trials from being run)
-                    
-                    result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=logging, trials=trials)
-                    flux = tr.to_E2dNdE(result['n_sig'], E0=1, unit=1e3)
-                    #flux = tr.to_dNdE(result['n_sig'], E0=1, unit=1e3)
-                    # return flux
-                    if logging:
-                        print(ts, beta, result['n_sig'], flux)
-                    sens[name] = flux
-                    result['flux_E2dNdE_1TeV'] = flux
-                    if save:
-                        if nsigma:
-                            np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/{nsigma}sigma_dp.npy', result)
-                        else:
-                            np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy', result)
+        name_list = sources
+    
+    for name in name_list:
+        sig = np.load (sigfile, allow_pickle=True)
+        print(name)
+        print(sig['name'][name])
+        if fix_gamma:
+            if sig['name'][name]:
+                sig_trials = cy.bk.get_best(sig, 'name', name, 'fix_gamma_{}'.format(fix_gamma), 'src_gamma_{}'.format(src_gamma),
+                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+                try:
+                    b = cy.bk.get_best(sig, 'name', name, 'fix_gamma_{}'.format(fix_gamma), 'src_gamma_{}'.format(src_gamma),
+                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'bg')
                 except:
-                    pass 
-        if save:
+                    print( 0,0)
+            else:
+                print( 0, 0)
+        else:
+            print('fit gamma')
+            try: 
+                sig_trials = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'src_gamma_{}'.format(src_gamma), 
+                            'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+                b = cy.bk.get_best(sig, 'name', name, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
+                                'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff_GeV), 'bg')
+                if logging:
+                    print(b)
+                conf, inj_conf  =  cg.get_ps_config(
+                                            ana,
+                                            name, 
+                                            src_gamma, 
+                                            fix_gamma, 
+                                            cutoff_GeV, 
+                                            lag, 
+                                            thresh
+                                            ) 
+                tr = cy.get_trial_runner(
+                                    conf=conf,
+                                    inj_conf = inj_conf, 
+                                    ana=ana, 
+                                    flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
+                                    mp_cpus=cpus, 
+                                    dir=dir
+                                    )
+                if nsigma !=None:
+                    beta = 0.5
+                    print('sigma = {}'.format(nsigma))
+                    ts = b.isf_nsigma(nsigma)
+                else:
+                    print('Getting sensitivity')
+                    beta = 0.9
+                    ts = b.median()
+                #print(ts)
+
+                # include background trials in calculation
+                trials = {0: b}
+                trials.update(sig_trials)
+                for key in trials.keys():
+                    trials[key] = trials[key].trials
+                # get number of signal events
+                # (arguments prevent additional trials from being run)
+                
+                result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=logging, trials=trials)
+                flux = tr.to_E2dNdE(result['n_sig'], E0=1, unit=1e3)
+                #flux = tr.to_dNdE(result['n_sig'], E0=1, unit=1e3)
+                # return flux
+                if logging:
+                    print(ts, beta, result['n_sig'], flux)
+                sens[name] = flux
+                result['flux_E2dNdE_1TeV'] = flux
+                if save:
+                    if nsigma:
+                        np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/{nsigma}sigma_dp.npy', result)
+                    else:
+                        np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy', result)
+            except:
+                pass 
+    if save:
+        if nsigma:
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/dp{nsigma}sig_lag_{lag}_thresh_{thresh}.npy', sens)
+        else:
             np.save(f'{state.base_dir}/{state.ana_name}/lc/sens_lag_{lag}_thresh_{thresh}.npy', sens)
 
 

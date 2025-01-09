@@ -11,6 +11,6 @@
 #	export PATH=${PATH}:/usr/local/cuda/bin
 #fi
 
-eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.2.1/setup.sh`
-. /data/i3home/ssclafani/venvs/venv-py3-v4.2.1/bin/activate
+eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/setup.sh`
+. /data/i3store/users/ssclafani/software/virtual_envs/py4_3_0/bin/activate
 
