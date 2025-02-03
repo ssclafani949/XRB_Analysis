@@ -370,6 +370,7 @@ def submit_do_lc_trials (
     
     sources = pd.read_hdf(cg.source_file)
     names = sources.name_disp
+    names = ['Swift_J1745_dot_1_dash_2624']
     if fix_gamma:
         for name in names:
             for src_gamma in src_gammas:
@@ -581,8 +582,8 @@ def find_lc_nsig(
     else:
         sens = {}
         sources = pd.read_hdf(cg.source_file)
-        name_list = sources
-    
+        name_list = sources.name_disp
+        print(name_list) 
     for name in name_list:
         sig = np.load (sigfile, allow_pickle=True)
         print(name)
@@ -657,7 +658,7 @@ def find_lc_nsig(
                         np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy', result)
             except:
                 pass 
-    if save:
+    if save and not name:
         if nsigma:
             np.save(f'{state.base_dir}/{state.ana_name}/lc/dp{nsigma}sig_lag_{lag}_thresh_{thresh}.npy', sens)
         else:
@@ -886,9 +887,12 @@ def plot_lc_bias (
         #axs[1].set_ylabel(r'$\gamma$')
         if sens:
             sens_file = f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy'
-            result = np.load(sens_file, allow_pickle = True)[()]
-            for ax in axs:
-                ax.axvline(result['n_sig'], ls = '--')
+            try:
+                result = np.load(sens_file, allow_pickle = True)[()]
+                for ax in axs:
+                    ax.axvline(result['n_sig'], ls = '--')
+            except(FileNotFoundError):
+                pass 
         plt.tight_layout()  
         if save:
             save_dir = cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/plots/{name}/fit_gamma/src_gamma_{src_gamma}/')
