@@ -15,20 +15,8 @@ import socket
 
 hostname = socket.gethostname()
 
-<<<<<<< Updated upstream
 repo, ana_dir, base_dir, job_basedir, source_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file
 submit_cfg_file = cg.submit_cfg_file
-=======
-repo, ana_dir, base_dir, job_basedir, source_file, submit_cfg_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file, cg.submit_cfg_file
->>>>>>> Stashed changes
-#repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
-#ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
-#base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
-#repo = cy.selections.Repository()
-#ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB/analyses')
-#base_dir = cy.utils.ensure_dir('/data/user/ssclafani/XRB_stacking_ss_test/')
-#source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
-#job_basedir = '/scratch/ssclafani/logs/' 
 
 
 class State (object):
@@ -44,11 +32,7 @@ class State (object):
             print(repo.local_root)
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             psspec = cy.selections.PSDataSpecs.ps_v4[3:]
-<<<<<<< Updated upstream
             ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
-=======
-            ana = cy.get_analysis(repo, 'version-004-p02', psspec, 'version-001-p01', cspec,
->>>>>>> Stashed changes
                         dir=self.ana_dir)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
