@@ -15,8 +15,12 @@ import socket
 
 hostname = socket.gethostname()
 
+<<<<<<< Updated upstream
 repo, ana_dir, base_dir, job_basedir, source_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file
 submit_cfg_file = cg.submit_cfg_file
+=======
+repo, ana_dir, base_dir, job_basedir, source_file, submit_cfg_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file, cg.submit_cfg_file
+>>>>>>> Stashed changes
 #repo = cy.selections.Repository(local_root='/data/i3store/users/analyses')
 #ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB/analyses')
 #base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/XRB_stacking_ss/')
@@ -40,7 +44,11 @@ class State (object):
             print(repo.local_root)
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             psspec = cy.selections.PSDataSpecs.ps_v4[3:]
+<<<<<<< Updated upstream
             ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
+=======
+            ana = cy.get_analysis(repo, 'version-004-p02', psspec, 'version-001-p01', cspec,
+>>>>>>> Stashed changes
                         dir=self.ana_dir)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
@@ -85,7 +93,7 @@ pass_state = click.make_pass_decorator (State)
 @click.group (invoke_without_command=True, chain=True)
 @click.option ('-a', '--ana', 'ana_name', default='combo', help='Dataset title')
 @click.option ('--ana-dir', default=ana_dir, type=click.Path ())
-@click.option ('--save/--nosave', default=False)
+@click.option ('--save/--nosave', default=True)
 @click.option ('--base-dir', default=base_dir,
                type=click.Path (file_okay=False, writable=True))
 @click.pass_context
@@ -251,11 +259,11 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
         else:
             out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/bg'.format (
                 state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight))
-
-    out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
-        out_dir, n_trials, seed)
-    print ('-> {}'.format (out_file))
-    np.save (out_file, trials.as_array)
+    if state.save:
+        out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
+            out_dir, n_trials, seed)
+        print ('-> {}'.format (out_file))
+        np.save (out_file, trials.as_array)
 
 
 @cli.command ()
@@ -443,7 +451,7 @@ def submit_do_stacking_trials (
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, ncpu=2, memory=13, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, ncpu=2, memory=13, max_jobs=1000, config = submit_cfg_file)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -554,10 +562,11 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
     print(result['n_sig'])
     result['flux_E2dNdE_1TeV'] = f
     if save:
+        cy.utils.ensure_dir(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/weight/{weight}/')
         if nsigma:
-            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/{nsigma}sigma_dp.npy', result)
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/weight/{weight}/{nsigma}sigma_dp.npy', result)
         else:
-            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/sens.npy', result)
+            np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/weight/{weight}/sens.npy', result)
 
 @cli.command()
 @click.option ('--name', default=None)
@@ -571,8 +580,7 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
 @click.option ('--save/--nosave', default=False)
 @pass_state
 def find_lc_nsig(
-    state, name, fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus,
-    logging=True, save= False):
+    state, name, fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save= False, sens = True):
     ana = state.ana
     cutoff_GeV = 1e3 * cutoff
     sigfile = '{}/{}/lc/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
@@ -674,8 +682,9 @@ def find_lc_nsig(
 @click.option ('--cpus', default=1, type=int)
 @click.option ('--weight', default = 'equal')
 @click.option ('--save/--nosave', default=False)
+@click.option ('--sens/--nosens', default=True)                                                                 
 @pass_state
-def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, weight, logging=True, save=False):
+def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, weight, logging=True, save=False, sens=True):
     import matplotlib.pyplot as plt
 
     cutoff_GeV = 1e3 * cutoff
@@ -720,18 +729,15 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
         fig, ax = plt.subplots(1, 1, figsize=(4,3))
     else:
         fig, axs = plt.subplots(1, 2, figsize=(6,3))
+    if not fix_gamma:
+        expect_gamma = src_gamma 
+        ax = axs[0]
+    else:
+        ax = axs[0]
     
     dns = np.mean(np.diff(n_sigs))
     ns_bins = np.r_[n_sigs - 0.5*dns, n_sigs[-1] + 0.5*dns]
     expect_kw = dict(color='C0', ls='--', lw=1, zorder=-10)
-    if not fix_gamma:
-        expect_gamma = src_gamma 
-        ax = axs[0]
-        ax.set_xlim(0,100)
-        ax.set_ylim(0,100)
-    else:
-        ax.set_xlim(0,200)
-        ax.set_ylim(0,200)
     h = hl.hist((allt.ntrue, allt.ns), bins=(ns_bins, 70))
     hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
     ax.set_xlabel(r'n$_{inj}$')
@@ -753,6 +759,20 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
         ax.set_xlabel(r'n$_{inj}$')
         ax.set_ylabel(r'$\gamma$')
         #ax.set_aspect('equal')
+    if sens:
+        sens = np.load(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/weight/{weight}/sens.npy', allow_pickle = True)[()]
+        nsigma = 5.0
+        dp = np.load(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/weight/{weight}/{nsigma}sigma_dp.npy', allow_pickle = True)[()]
+        try:
+            for ax in axs:
+                ax.axvline(sens['n_sig'], ls = '--', c='C0')
+                ax.axvline(dp['n_sig'], ls = ':', c='C0')
+        except(FileNotFoundError):
+            pass 
+    for ax in axs:
+        ax.set_xlim(0,100)
+    axs[0].set_ylim(0,100)
+
     plt.suptitle(f'Weight {weight} $\gamma$={src_gamma:.2}')
     plt.tight_layout()
     if save:

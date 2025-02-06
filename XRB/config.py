@@ -10,9 +10,14 @@ import histlite as hl
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
+<<<<<<< Updated upstream
 job_base = 'XRB_baseline_v0.3'
 if 'condor' in hostname or 'cobol' in hostname:
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
+=======
+job_base = 'XRB_baseline_IC86_v0.3'
+if 'condor00' in hostname or 'cobol' in hostname:
+>>>>>>> Stashed changes
     repo = cy.selections.Repository(
         local_root='/data/i3store/users/analyses')
     ana_dir = cy.utils.ensure_dir(
@@ -20,7 +25,7 @@ if 'condor' in hostname or 'cobol' in hostname:
     base_dir = cy.utils.ensure_dir(
         '/data/i3store/users/{}/data/analyses/{}'.format(username, job_base))
     job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
-    source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
+    source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_trimmed.hdf'
 elif 'gpu' in hostname:
     if os.path.exists( '/data/i3home/'):
         print('I am on UMD')
@@ -31,8 +36,13 @@ elif 'gpu' in hostname:
         base_dir = cy.utils.ensure_dir(
             '/data/i3store/users/{}/data/analyses/{}'.format(username, job_base))
         job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
+<<<<<<< Updated upstream
         source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
         submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
+=======
+        source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_trimmed.hdf'
+        submit_cfg_file = 'XRB_Sens/submitter_config_umd'
+>>>>>>> Stashed changes
     elif os.path.exists( '/data/user/'):
         print('I am on NPX')
         repo = cy.selections.Repository()
@@ -40,8 +50,8 @@ elif 'gpu' in hostname:
         base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
         ana_dir = '{}/ana'.format (base_dir)
         job_basedir = '/scratch/{}/'.format(username) 
-        source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
-        submit_cfg_file = 'XRB_Sens/submitter_config_npx'
+        source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_trimmed.hdf'
+        submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
     else:
         print('Could not find direcotry')
 else:
@@ -50,8 +60,8 @@ else:
     base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/{}/'.format(username) 
-    source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected.hdf'
-    submit_cfg_file = 'XRB_Sens/submitter_config_npx'
+    source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_trimmed.hdf'
+    submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
 
 
 # path at which source catalogs are located
@@ -257,7 +267,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
         src_weight = 1./(len(decs)) * np.ones_like(decs)
     elif weight == 'flux':
         src_weight = np.concatenate(flux_weight / np.sum(flux_weight))
-    src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), deg=True)
+    src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), weight=src_weight, deg=True)
 
     print(f'inj lag: {lag}')
     print(f'inj thresh: {thresh}')                                                                 
@@ -306,6 +316,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
                 extra_keep = ['energy'],
                 n_seeds_lag = 20,
                 update_bg = True,
+                extended = False,
                 sigsub = True,
                 fitter_args = fitter_dict,
                 )                                                                                                                   
