@@ -257,7 +257,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
         src_weight = 1./(len(decs)) * np.ones_like(decs)
     elif weight == 'flux':
         src_weight = np.concatenate(flux_weight / np.sum(flux_weight))
-    src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), deg=True)
+    src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), weight=src_weight, deg=True)
 
     print(f'inj lag: {lag}')
     print(f'inj thresh: {thresh}')                                                                 
@@ -306,6 +306,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
                 extra_keep = ['energy'],
                 n_seeds_lag = 20,
                 update_bg = True,
+                extended = False,
                 sigsub = True,
                 fitter_args = fitter_dict,
                 )                                                                                                                   
