@@ -10,7 +10,7 @@ import histlite as hl
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
-job_base = 'XRB_baseline_v0.3'
+job_base = 'XRB_baseline_v0.4'
 if 'condor' in hostname or 'cobol' in hostname:
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
     repo = cy.selections.Repository(
@@ -41,7 +41,7 @@ elif 'gpu' in hostname:
         ana_dir = '{}/ana'.format (base_dir)
         job_basedir = '/scratch/{}/'.format(username) 
         source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
-        submit_cfg_file = 'XRB_Sens/submitter_config_npx'
+        submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
     else:
         print('Could not find direcotry')
 else:
@@ -51,7 +51,7 @@ else:
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/{}/'.format(username) 
     source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
-    submit_cfg_file = 'XRB_Sens/submitter_config_npx'
+    submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
 
 
 # path at which source catalogs are located
@@ -241,7 +241,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
         if len(index) > 2:
             ras.append(source.ra_deg)
             decs.append(source.dec_deg)
-            flux_weight.append(source.mean_rate)
+            flux_weight.append(source.mean_active_flux)
             if index[0] != 0:
                     bins_in_data = np.append(np.append(ana.mjd_min-7.,bins[index]),ana.mjd_max+7.)
                     flux_in_data = np.append(fluxes[index[0]-1],fluxes[index])
@@ -302,7 +302,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
                 lcs=lcs,
                 range_lag=(-7.,7.),
                 sig='lc',
-                concat_evs=True,
+                #concat_evs=True,
                 extra_keep = ['energy'],
                 n_seeds_lag = 20,
                 update_bg = True,
@@ -314,4 +314,23 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
 
     return conf, inj_conf
 
+def get_gp_conf(ana, template_str, ): 
+    repo = template_repo = cy.selections.Repository(
+    local_root='/data/ana/analyses/NuSources/2021_DNNCascade_analyses')
 
+    if template_str == 'pi0':
+
+        # get default gamma
+        gamma = 2.7
+
+        template = repo.get_template('Fermi-LAT_pi0_map')
+        gp_conf = {
+            'template': template,
+            'flux': cy.hyp.PowerLawFlux(gamma),
+            'randomize': ['ra'],
+            'fitter_args': dict(gamma=gamma),
+            'sigsub': True,
+            'update_bg' : True,
+            'fast_weight' : False,
+            }
+        return gp_conf

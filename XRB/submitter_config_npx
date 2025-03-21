@@ -1,6 +1,6 @@
 echo 'Starting job on Host: '$HOSTNAME                                       
-echo 'Loading py3-v4.1.1'
+echo 'Loading py3-v4.2.1'
 
-eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/setup.sh`
-source /data/user/ssclafani/software/venvs/py3_10/bin/activate
+eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.2.1/setup.sh`
+source /data/user/ssclafani/software/venvs/py3_11/py3_11/bin/activate
 

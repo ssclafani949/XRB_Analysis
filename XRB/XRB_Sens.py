@@ -30,10 +30,16 @@ class State (object):
         print(self.ana_name)
         if self.ana_name == 'combo':
             print(repo.local_root)
-            cspec = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
-            psspec = cy.selections.PSDataSpecs.ps_v4[3:]
+            cspec = cy.selections.DNNCascadeDataSpecs.DNNC_12yr
+            psspec = cy.selections.PSDataSpecs.ps_v4_15yr[3:]
             ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
                         dir=self.ana_dir)
+            ind_list = np.load('/home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy')
+            ana[0].data = cy.utils.Arrays(
+                        ana[0].data.as_dataframe.drop(
+                        labels=ind_list, 
+                        errors='ignore', #ignore events that are not present since we are just using IC86
+                        ))
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
                 ana.save (self.ana_dir)
@@ -215,7 +221,6 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
         n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging, mp_cpus = cpus)
     print(f'TS: {trials.ts}')
     print(f'ns: {trials.ns}')
-    print(trials.seed)
     if 'gamma' in trials.keys():
         print(f'Gamma: {trials.gamma}')
     t1 = now ()

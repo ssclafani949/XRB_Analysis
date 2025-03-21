@@ -11,3 +11,5 @@ version XRB_baseline_v0.2 - Tests with branch with time-dependant stacking fixes
 version XRB_baseline_v0.3 - Tests with only IC86 - swapping the lightcurves to the cropped version
 and using an additional two years of DNNCascades.
 
+version v0.4 - Add two years, account for overlap, and use the csky code with
+bugfix for the minuit issue
