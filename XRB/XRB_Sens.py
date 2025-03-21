@@ -17,7 +17,7 @@ hostname = socket.gethostname()
 
 repo, ana_dir, base_dir, job_basedir, source_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file
 submit_cfg_file = cg.submit_cfg_file
-
+overlap_file = cg.overlap_file
 
 class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir):
@@ -34,7 +34,7 @@ class State (object):
             psspec = cy.selections.PSDataSpecs.ps_v4_15yr[3:]
             ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
                         dir=self.ana_dir)
-            ind_list = np.load('/home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy')
+            ind_list = np.load(overlap_file)
             ana[0].data = cy.utils.Arrays(
                         ana[0].data.as_dataframe.drop(
                         labels=ind_list, 
@@ -366,7 +366,7 @@ def submit_do_lc_trials (
     fix_gammas = [fix_gamma] 
     
     sources = pd.read_hdf(cg.source_file)
-    names = sources.name_disp
+    #names = sources.name_disp
     names = ['Swift_J1745_dot_1_dash_2624']
     if fix_gamma:
         for name in names:

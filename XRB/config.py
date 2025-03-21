@@ -21,6 +21,7 @@ if 'condor' in hostname or 'cobol' in hostname:
         '/data/i3store/users/{}/data/analyses/{}'.format(username, job_base))
     job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
     source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
+    overlap_file = '/data/i3home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
 elif 'gpu' in hostname:
     if os.path.exists( '/data/i3home/'):
         print('I am on UMD')
@@ -33,6 +34,7 @@ elif 'gpu' in hostname:
         job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
         source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
         submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
+        overlap_file = '/data/i3home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
     elif os.path.exists( '/data/user/'):
         print('I am on NPX')
         repo = cy.selections.Repository()
@@ -42,6 +44,7 @@ elif 'gpu' in hostname:
         job_basedir = '/scratch/{}/'.format(username) 
         source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
         submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
+        overlap_file = '/home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
     else:
         print('Could not find direcotry')
 else:
@@ -52,6 +55,7 @@ else:
     job_basedir = '/scratch/{}/'.format(username) 
     source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
+    overlap_file = '/home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
 
 
 # path at which source catalogs are located
