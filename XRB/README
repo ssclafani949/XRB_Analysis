@@ -13,3 +13,5 @@ and using an additional two years of DNNCascades.
 
 version v0.4 - Add two years, account for overlap, and use the csky code with
 bugfix for the minuit issue
+
+version v0.5 - Add option to inject GP as background

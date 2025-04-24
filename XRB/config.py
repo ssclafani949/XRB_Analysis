@@ -10,7 +10,7 @@ import histlite as hl
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
-job_base = 'XRB_baseline_v0.4'
+job_base = 'XRB_baseline_v0.5'
 if 'condor' in hostname or 'cobol' in hostname:
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
     repo = cy.selections.Repository(
@@ -230,7 +230,7 @@ def get_stacking_config_AB_test(ana, src_gamma, fix_gamma, name_1, name_2, thres
     return conf, inj_conf
 
 
-def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
+def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight, inject_gp=False):
     sources = pd.read_hdf(source_file)
     ras = []
     decs = []
@@ -258,9 +258,11 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
             print('Not Including: ' + name)
     print(len(decs), len(ras), len(lcs))
     if weight == 'equal':
-        src_weight = 1./(len(decs)) * np.ones_like(decs)
+        src_weight = np.concatenate(1./(len(decs)) * np.ones_like(decs))
+        print(src_weight)
     elif weight == 'flux':
         src_weight = np.concatenate(flux_weight / np.sum(flux_weight))
+        print(flux_weight)
     src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), weight=src_weight, deg=True)
 
     print(f'inj lag: {lag}')
@@ -314,7 +316,15 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight):
                 sigsub = True,
                 fitter_args = fitter_dict,
                 )                                                                                                                   
-    inj_conf=dict(lcs=lcs, threshs=np.zeros_like(lcs), lags=np.zeros_like(lcs), flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
+    if inject_gp:
+        inj_conf=dict(lcs=lcs, 
+                        threshs=np.zeros_like(lcs), 
+                        lags=np.zeros_like(lcs), 
+                        flux = cy.hyp.PowerLawFlux(gamma=src_gamma),
+                        gp_filenames = ['/data/user/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
+                              '/data/user/ssclafani/GP_injected_trials/trial_cascades_IC86.npy'])
+    else:
+        inj_conf=dict(lcs=lcs, threshs=np.zeros_like(lcs), lags=np.zeros_like(lcs), flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
 
     return conf, inj_conf
 

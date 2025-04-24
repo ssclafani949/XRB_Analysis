@@ -759,8 +759,8 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
         except(FileNotFoundError):
             pass 
     for ax in axs:
-        ax.set_xlim(0,100)
-    axs[0].set_ylim(0,100)
+        ax.set_xlim(0,50)
+    axs[0].set_ylim(0,50)
 
     plt.suptitle(f'Weight {weight} $\gamma$={src_gamma:.2}')
     plt.tight_layout()
