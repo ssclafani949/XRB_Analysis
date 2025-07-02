@@ -16,21 +16,23 @@ trial_script = os.path.abspath('gp_inj_test.py')
 print(trial_script)
 seed = 1 
 n_trials = 100
-n_sigs = [0, 31]
+n_sigs = [0, 10, 20, 30, 50]
 n_jobs = 20
 gp_inj = None 
+weights = [ 'equal']
+
 
 for n_sig in n_sigs:
     for i in range (n_jobs):
-
-        s = i + seed
-        if gp_inj:
-            command = f'{trial_script} --n_sig {n_sig} --n_trials {n_trials} --seed {s} --cpus {cpus} --gp_inject'
-            label = f'gp_test_n_sig{n_sig:06}__{n_trials:08d}__seed{s:08d}_gp'
-        else:
-            command = f'{trial_script} --n_sig {n_sig} --n_trials {n_trials} --seed {s} --cpus {cpus}'
-            label = f'gp_test_n_sig{n_sig:06}__{n_trials:08d}__seed{s:08d}'
-        commands.append(command)
-        labels.append(label)
+        for weight in weights:
+            s = i + seed
+            if gp_inj:
+                command = f'{trial_script} --n_sig {n_sig} --n_trials {n_trials} --seed {s} --cpus {cpus} --weight {weight} --gp_inject'
+                label = f'gp_test_n_sig{n_sig:06}__{n_trials:08d}__seed{s:08d}_gp'
+            else:
+                command = f'{trial_script} --n_sig {n_sig} --n_trials {n_trials} --seed {s} --cpus {cpus} --weight {weight}'
+                label = f'gp_test_n_sig{n_sig:06}__{n_trials:08d}__seed{s:08d}'
+            commands.append(command)
+            labels.append(label)
 
 sub.submit_npx4 (commands, labels) 

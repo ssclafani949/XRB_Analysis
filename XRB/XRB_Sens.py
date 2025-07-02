@@ -20,10 +20,10 @@ submit_cfg_file = cg.submit_cfg_file
 overlap_file = cg.overlap_file
 
 class State (object):
-    def __init__ (self, ana_name, ana_dir, save,  base_dir):
+    def __init__ (self, ana_name, ana_dir, save,  base_dir, gp_downsample):
         self.ana_name, self.ana_dir, self.save = ana_name, ana_dir, save
         self.base_dir = base_dir
-        #self._ana = None
+        self.gp_downsample = gp_downsample 
 
     @property
     def ana (self):
@@ -71,12 +71,22 @@ class State (object):
             self._ana = ana
         else:
             print('Ana Name {} not valid'.format(self.ana_name))
+
+        if self.gp_downsample:
+            print('Building Downsample PDFs')
+            for a in ana:
+                cy.utils.get_gp_prob(a, 
+                    norm=2.18e-18, 
+                    gamma=2.7, 
+                    template_file='/data/ana/analyses/NuSources/2021_DNNCascade_analyses/templates/Fermi-LAT_pi0_map.npy',
+                    bins=[np.linspace(2,8,50), np.linspace(-1,1,50)])
+
         return self._ana
 
     @property
     def state_args (self):
-        return '--ana {} --ana-dir {} --base-dir {}'.format (
-            self.ana_name, self.ana_dir, self.base_dir)
+        return '--ana {} --ana-dir {} --base-dir {} --gp_downsample {}'.format (
+            self.ana_name, self.ana_dir, self.base_dir, self.gp_downsample)
 
 pass_state = click.make_pass_decorator (State)
 
@@ -86,9 +96,10 @@ pass_state = click.make_pass_decorator (State)
 @click.option ('--save/--nosave', default=True)
 @click.option ('--base-dir', default=base_dir,
                type=click.Path (file_okay=False, writable=True))
+@click.option ('--gp_downsample/--nogp_downsample', default=True)
 @click.pass_context
-def cli (ctx, ana_name, ana_dir, save, base_dir):
-    ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir)
+def cli (ctx, ana_name, ana_dir, save, base_dir, gp_downsample):
+    ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir, gp_downsample)
 
 
 @cli.result_callback ()
@@ -117,7 +128,7 @@ def setup_ana (state):
 @click.option ('--save_trials/--nosave_trials', default=False)
 @pass_state
 def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed,
-cutoff,  cpus, save_trials = False, logging=True):
+    cutoff,  cpus, save_trials = False, logging=True):
     ana = state.ana
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -132,7 +143,8 @@ cutoff,  cpus, save_trials = False, logging=True):
                                 fix_gamma, 
                                 cutoff_GeV, 
                                 lag, 
-                                thresh
+                                thresh,
+                                inject_gp = True
                                 ) 
     tr = cy.get_trial_runner(
                         conf=conf,
@@ -206,7 +218,8 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                                     fix_gamma, 
                                     thresh, 
                                     lag,
-                                    weight
+                                    weight,
+                                    inject_gp = True
                                     )
     tr = cy.get_trial_runner(
                             conf=conf,  

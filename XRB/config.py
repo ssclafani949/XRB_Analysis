@@ -10,7 +10,7 @@ import histlite as hl
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
-job_base = 'XRB_baseline_v0.5'
+job_base = 'XRB_baseline_v1.0'
 if 'condor' in hostname or 'cobol' in hostname:
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
     repo = cy.selections.Repository(
@@ -69,7 +69,7 @@ catalog_dir = os.path.join(
 
 
 
-def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh):
+def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh, inject_gp = False):
     
     sources = pd.read_hdf(source_file)
     source = sources.loc[sources['name_disp'] == name]
@@ -137,7 +137,16 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh):
             fitter_args = dict(_fmin_method='minuit'),
             sigsub = True,
         )
-    inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
+    if inject_gp:
+        inj_conf=dict(lcs=lc, 
+                        threshs=thresh, 
+                        lags=lag, 
+                        flux = cy.hyp.PowerLawFlux(gamma=src_gamma),
+                        gp_filenames = ['/data/user/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
+                              '/data/user/ssclafani/GP_injected_trials/trial_cascades_IC86.npy'])
+    else:
+        inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
+
 
     del sources, lc, 
     return conf, inj_conf

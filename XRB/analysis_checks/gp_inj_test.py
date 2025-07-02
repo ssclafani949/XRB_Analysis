@@ -17,8 +17,7 @@ def load_data(dataset='combo'):
     ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec)
     return ana
 
-def run_gp_test_stacking(ana, n_trials = 1, ns=0, seed=0, cpus =12, gp_inject=False):
-
+def run_gp_test_stacking(ana, n_trials = 1, ns=0, seed=0, cpus =12, weight='equal', gp_inject=False):
     def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight, inject_gp):
         source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
         sources = pd.read_hdf(source_file)
@@ -48,9 +47,10 @@ def run_gp_test_stacking(ana, n_trials = 1, ns=0, seed=0, cpus =12, gp_inject=Fa
                 print('Not Including: ' + name)
         print(len(decs), len(ras), len(lcs))
         if weight == 'equal':
-            src_weight = 1./(len(decs)) * np.ones_like(decs)
+            src_weight = np.concatenate(1./(len(decs)) * np.ones_like(decs))
         elif weight == 'flux':
             src_weight = np.concatenate(flux_weight / np.sum(flux_weight))
+            print(src_weight)
         src = cy.utils.Sources(dec = np.concatenate(decs), ra = np.concatenate(ras), weight=src_weight, deg=True)
 
         print(f'inj lag: {lag}')
@@ -127,20 +127,20 @@ def run_gp_test_stacking(ana, n_trials = 1, ns=0, seed=0, cpus =12, gp_inject=Fa
                                     fix_gamma = None, 
                                     thresh = 0, 
                                     lag = 0, 
-                                    weight = 'flux',
+                                    weight = weight,
                                     inject_gp = inject_gp)
     stacking_tr  = cy.get_trial_runner(ana=ana, conf=stacking_conf, inj_conf = stacking_inj_conf, mp_cpus = cpus) 
     #stacking_tr.sig_injs[0]  = gp_tr.sig_injs[0]
     #stacking_tr.sig_injs[1]  = gp_tr.sig_injs[1]    
-
+    print(ns, seed, cpus, n_trials)
     trials = stacking_tr.get_many_fits(n_trials=n_trials, n_sig=ns, seed=seed, mp_cpus = cpus)
     print(np.median(trials.ts)) 
     if inject_gp:
         dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/XRB_baseline_v0.5/gp_tests/gp_inj/')
-        np.save(f'{dir}/stacking_trials_{n_trials:08d}_ns_{ns}_seed_{seed:08d}', trials.as_array)
+        np.save(f'{dir}/stacking_trials_{weight}_{n_trials:08d}_ns_{ns}_seed_{seed:08d}', trials.as_array)
     else:
-        dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/XRB_baseline_v0.5/gp_tests/no_g/')
-        np.save(f'{dir}/stacking_trials_{n_trials:08d}_ns_{ns}_seed_{seed:08d}', trials.as_array)
+        dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/XRB_baseline_v0.5/gp_tests/no_gp/')
+        np.save(f'{dir}/stacking_trials_{weight}_{n_trials:08d}_ns_{ns}_seed_{seed:08d}', trials.as_array)
 
 if __name__ == "__main__":
 
@@ -149,10 +149,11 @@ if __name__ == "__main__":
     parser.add_argument('--n_trials', type = int, default = 1)
     parser.add_argument('--seed', type = int, default=0)
     parser.add_argument('--cpus', type = int, default=1)
+    parser.add_argument('--weight', type = str, default='equal')
     parser.add_argument('--gp_inject', action = 'store_true', default=False)
     args = parser.parse_args()
 
     ana = load_data(dataset='combo')
-    trials = run_gp_test_stacking(ana, args.n_trials, args.n_sig, args.seed, args.cpus, args.gp_inject)
+    trials = run_gp_test_stacking(ana, args.n_trials, args.n_sig, args.seed, args.cpus, args.weight, args.gp_inject)
 
 

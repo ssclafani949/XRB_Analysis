@@ -18,9 +18,9 @@ sources = pd.read_hdf(source_file)
 names = sources.name_disp
 
 seed = 1 
-n_trials = 200
-n_sigs = [0]
-n_jobs = 5
+n_trials = 100
+n_sigs = [0, 5, 10, 15, 20, 25, 35, 50]
+n_jobs = 10
 gp_inj = True 
 
 for name in names:
