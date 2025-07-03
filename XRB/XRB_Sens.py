@@ -126,9 +126,10 @@ def setup_ana (state):
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
 @click.option ('--save_trials/--nosave_trials', default=False)
+@click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
 def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed,
-    cutoff,  cpus, save_trials = False, logging=True):
+    cutoff,  cpus, inject_gp, save_trials = False, logging=True):
     ana = state.ana
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -203,13 +204,17 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--cpus', default=1, type=int)
 @click.option ('--weight',  default='equal')
+@click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
-def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff, cpus, weight, logging = True):
+def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff, cpus, weight, inject_gp, logging = True):
     ana = state.ana
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed)
-   
+    if inject_gp:
+        gp_inj_str = 'gp_inj'
+    else:
+        gp_inj_str = 'no_gpinj'
     cutoff_GeV = cutoff * 1e3 
 
     conf, inj_conf = cg.get_stacking_config(
@@ -219,7 +224,7 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                                     thresh, 
                                     lag,
                                     weight,
-                                    inject_gp = True
+                                    inject_gp = inject_gp 
                                     )
     tr = cy.get_trial_runner(
                             conf=conf,  
@@ -245,13 +250,13 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     if n_sig:
         if fix_gamma:
             out_dir = cy.utils.ensure_dir (
-                    '{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/nsig/{}'.format (
-                        state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff,
+                    '{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/nsig/{}/'.format (
+                        state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, gp_inj_str,
                           n_sig))
         else:
             out_dir = cy.utils.ensure_dir (
-                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/nsig/{}'.format (
-                    state.base_dir, state.ana_name,  src_gamma, thresh, lag, cutoff, weight,
+                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/nsig/{}'.format (
+                    state.base_dir, state.ana_name,  src_gamma, thresh, lag, cutoff, weight, gp_inj_str,
                       n_sig))
     else:        
         if fix_gamma:
@@ -444,16 +449,21 @@ def submit_do_lc_trials (
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @click.option ('--weight', default='equal')
+@click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
 def submit_do_stacking_trials (
-        state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed, weight):
+        state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed, weight, inject_gp):
     ana_name = state.ana_name
+    gp_downsample = state.gp_downsample
+    inj_gp = inject_gp
+    downsample_str = 'gp_downsample' if state.gp_downsample else 'no_gpdownsample'
+    inj_gp_str = 'inject_gp' if inject_gp else 'noinject_gp'
     T = time.time ()
     #job_basedir = '/scratch/ssclafani/logs/' 
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, ncpu=2, memory=13, max_jobs=1000, config = submit_cfg_file)
+    sub = Submitter (job_dir=job_dir, ncpu=1, memory=13, max_jobs=1000, config = submit_cfg_file)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -476,11 +486,11 @@ def submit_do_stacking_trials (
         for n_sig in n_sigs:
             for i in range (n_jobs):
                 s = i + seed
-                fmt = '{} {} do-stacking-trials  --src_gamma={} --n-trials={}' \
+                fmt = '{} --{} do-stacking-trials  --src_gamma={} --n-trials={}' \
                         ' --n-sig={} --weight={}' \
-                        ' --{} --seed={}'
-                command = fmt.format ( this_script, state.state_args,  src_gamma, n_trials,
-                                      n_sig, weight, poisson_str, s)
+                        ' --{}  --{} --seed={}'
+                command = fmt.format ( this_script, downsample_str, src_gamma, n_trials,
+                                      n_sig, weight, poisson_str, inj_gp_str,  s)
                 fmt = 'xrb_stacking_fit_gamma__trials_{:07d}__n_sig_{:08.3f}__{}' \
                         'src_gamma_{:.3f}_seed_{:04d}'
                 label = fmt.format (n_trials, n_sig, weight, src_gamma, s)
