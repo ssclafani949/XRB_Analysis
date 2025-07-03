@@ -260,12 +260,12 @@ def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                       n_sig))
     else:        
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking//trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/bg'.format (
-                state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, weight))
+            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking//trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}{}//bg'.format (
+                state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, weight, gp_inj_str))
  
         else:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/bg'.format (
-                state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight))
+            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/bg'.format (
+                state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight, gp_inj_str))
     if state.save:
         out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
             out_dir, n_trials, seed)
@@ -456,7 +456,7 @@ def submit_do_stacking_trials (
     ana_name = state.ana_name
     gp_downsample = state.gp_downsample
     inj_gp = inject_gp
-    downsample_str = 'gp_downsample' if state.gp_downsample else 'no_gpdownsample'
+    downsample_str = 'gp_downsample' if state.gp_downsample else 'nogp_downsample'
     inj_gp_str = 'inject_gp' if inject_gp else 'noinject_gp'
     T = time.time ()
     #job_basedir = '/scratch/ssclafani/logs/' 
