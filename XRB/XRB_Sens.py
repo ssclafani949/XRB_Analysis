@@ -18,13 +18,14 @@ hostname = socket.gethostname()
 repo, ana_dir, base_dir, job_basedir, source_file = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir, cg.source_file
 submit_cfg_file = cg.submit_cfg_file
 overlap_file = cg.overlap_file
+template_file = cg.template_file
 
 class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir, gp_downsample):
         self.ana_name, self.ana_dir, self.save = ana_name, ana_dir, save
         self.base_dir = base_dir
         self.gp_downsample = gp_downsample 
-
+        self.template_file = template_file
     @property
     def ana (self):
         print(self.ana_name)
@@ -33,7 +34,7 @@ class State (object):
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_12yr
             psspec = cy.selections.PSDataSpecs.ps_v4_15yr[3:]
             ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
-                        dir=self.ana_dir)
+                        )
             ind_list = np.load(overlap_file)
             ana[0].data = cy.utils.Arrays(
                         ana[0].data.as_dataframe.drop(
@@ -78,7 +79,7 @@ class State (object):
                 cy.utils.get_gp_prob(a, 
                     norm=2.18e-18, 
                     gamma=2.7, 
-                    template_file='/data/ana/analyses/NuSources/2021_DNNCascade_analyses/templates/Fermi-LAT_pi0_map.npy',
+                    template_file=template_file,
                     bins=[np.linspace(2,8,50), np.linspace(-1,1,50)])
 
         return self._ana
@@ -129,8 +130,12 @@ def setup_ana (state):
 @click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
 def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed,
-    cutoff,  cpus, inject_gp, save_trials = False, logging=True):
+    cutoff,  cpus, save_trials, inject_gp, logging=True):
     ana = state.ana
+    if inject_gp:
+        gp_inj_str = 'gp_inj'
+    else:
+        gp_inj_str = 'no_gpinj'
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed)
@@ -145,7 +150,7 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
                                 cutoff_GeV, 
                                 lag, 
                                 thresh,
-                                inject_gp = True
+                                inject_gp = inject_gp
                                 ) 
     tr = cy.get_trial_runner(
                         conf=conf,
@@ -169,22 +174,22 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
     if n_sig:
         if fix_gamma:
             out_dir = cy.utils.ensure_dir (
-                    '{}/{}/lc/{}/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
-                        state.base_dir, state.ana_name, name, fix_gamma, src_gamma, thresh, lag, cutoff,
+                    '{}/{}/lc/{}/trials/fix_gamma_{}/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
+                        state.base_dir, state.ana_name, name, fix_gamma, gp_inj_str, src_gamma, thresh, lag, cutoff,
                           n_sig))
         else:
             out_dir = cy.utils.ensure_dir (
-                '{}/{}/lc/{}/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
-                    state.base_dir, state.ana_name, name,  src_gamma, thresh, lag, cutoff,
+                '{}/{}/lc/{}/trials/fit_gamma/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
+                    state.base_dir, state.ana_name, name, gp_inj_str, src_gamma, thresh, lag, cutoff,
                       n_sig))
     else:        
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/{}/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
-                state.base_dir, state.ana_name, name, fix_gamma, src_gamma, thresh, lag, cutoff))
+            out_dir = cy.utils.ensure_dir ('{}/{}/lc/{}/trials/fix_gamma_{}/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
+                state.base_dir, state.ana_name, name, fix_gamma, gp_inj_str, src_gamma, thresh, lag, cutoff))
  
         else:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/{}/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
-                state.base_dir, state.ana_name, name,  src_gamma, thresh, lag, cutoff))
+            out_dir = cy.utils.ensure_dir ('{}/{}/lc/{}/trials/fit_gamma/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
+                state.base_dir, state.ana_name, name,  gp_inj_str, src_gamma, thresh, lag, cutoff))
 
     out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
         out_dir, n_trials, seed)
@@ -365,11 +370,14 @@ def collect_stacking_trials (state, fit, hist, n):
 @click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
+@click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
 def submit_do_lc_trials (
-        state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed):
+        state, n_trials, n_jobs, n_sigs, src_gamma, fix_gamma, poisson, cutoff, dry, seed, inject_gp):
     ana_name = state.ana_name
     T = time.time ()
+    downsample_str = 'gp_downsample' if state.gp_downsample else 'nogp_downsample'
+    inj_gp_str = 'inject_gp' if inject_gp else 'noinject_gp'
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/lc_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
@@ -384,8 +392,8 @@ def submit_do_lc_trials (
     fix_gammas = [fix_gamma] 
     
     sources = pd.read_hdf(cg.source_file)
-    #names = sources.name_disp
-    names = ['Swift_J1745_dot_1_dash_2624']
+    names = sources.name_disp
+    #names = ['Swift_J1745_dot_1_dash_2624']
     if fix_gamma:
         for name in names:
             for src_gamma in src_gammas:
@@ -398,9 +406,9 @@ def submit_do_lc_trials (
                                     #fmt = '{} --ana-dir \'\' --base-dir={} do-ps-trials --dec={:+08.3f} --n-trials={}'
                                     fmt = ' {} {} do-lc-trials --name {} --fix_gamma={} --src_gamma={} --cutoff {} --n-trials={}' \
                                             ' --n-sig={} --thresh={} --lag={}' \
-                                            ' --{} --seed={} --save'
-                                    command = fmt.format ( this_script, state.state_args, name, fix_gamma, src_gamma, cutoff, n_trials,
-                                                          n_sig, thresh, lag, poisson_str, s)
+                                            ' --{} --{} --seed={} --save'
+                                    command = fmt.format ( this_script, downsample_str, name, fix_gamma, src_gamma, cutoff, n_trials,
+                                                          n_sig, thresh, lag, poisson_str, inj_gp_str, s)
                                     fmt = 'xrb{}_fix_gamma_{}__trials_{:07d}__n_sig_{:08.3f}__' \
                                             'src_gamma_{:.3f}_thresh_{}_lag_{}_cutoff_{}seed_{:04d}'
                                     label = fmt.format (name, fix_gamma, n_trials, n_sig, src_gamma,
@@ -417,13 +425,13 @@ def submit_do_lc_trials (
                             for i in range (n_jobs):
                                 s = i + seed
                                 #fmt = '{} --ana-dir \'\' --base-dir={} do-ps-trials --dec={:+08.3f} --n-trials={}'
-                                fmt = '{} {} do-lc-trials --name {}  --src_gamma={} --n-trials={}' \
+                                fmt = '{} --{} do-lc-trials --name {}  --src_gamma={} --n-trials={}' \
                                         ' --n-sig={} --thresh={} --lag={}' \
-                                        ' --{} --seed={}'
+                                        ' --{} --{} --seed={}'
                                 #command = fmt.format (env_shell, this_script, state.state_args, name, src_gamma, n_trials,
                                 #                      n_sig, thresh, lag, poisson_str, s)
-                                command = fmt.format ( this_script, state.state_args, name, src_gamma, n_trials,
-                                                      n_sig, thresh, lag, poisson_str, s)
+                                command = fmt.format ( this_script, downsample_str,  name, src_gamma, n_trials,
+                                                      n_sig, thresh, lag, poisson_str, inj_gp_str, s)
                                 fmt = 'xrb{}_fit_gamma__trials_{:07d}__n_sig_{:08.3f}__' \
                                         'src_gamma_{:.3f}_thresh_{}_lag_{}_seed_{:04d}'
                                 label = fmt.format (name,  n_trials, n_sig, src_gamma,

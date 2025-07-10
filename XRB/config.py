@@ -22,6 +22,9 @@ if 'condor' in hostname or 'cobol' in hostname:
     job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
     source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
     overlap_file = '/data/i3home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
+    template_file = '/data/i3store/users/analyses/templates/Fermi-LAT_pi0_map.npy'
+    gp_filenames = ['/data/i3store/users/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
+                    '/data/i3store/users/ssclafani/GP_injected_trials/trial_cascades_IC86.npy']
 elif 'gpu' in hostname:
     if os.path.exists( '/data/i3home/'):
         print('I am on UMD')
@@ -35,6 +38,9 @@ elif 'gpu' in hostname:
         source_file  = '/data/i3home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
         submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_umd'
         overlap_file = '/data/i3home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
+        template_file = '/data/i3store/users/analyses/templates/Fermi-LAT_pi0_map.npy'
+        gp_filenames = ['/data/i3store/users/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
+                        '/data/i3store/users/ssclafani/GP_injected_trials/trial_cascades_IC86.npy']
     elif os.path.exists( '/data/user/'):
         print('I am on NPX')
         repo = cy.selections.Repository()
@@ -45,6 +51,9 @@ elif 'gpu' in hostname:
         source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
         submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
         overlap_file = '/home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
+        template_file = '/data/ana/analyses/NuSources/2021_DNNCascade_analyses/templates/Fermi-LAT_pi0_map.npy'
+        gp_filenames = ['/data/user/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
+                        '/data/user/ssclafani/GP_injected_trials/trial_cascades_IC86.npy']
     else:
         print('Could not find direcotry')
 else:
@@ -56,7 +65,9 @@ else:
     source_file  = '/home/ssclafani/XRB_Analysis/XRB/sources/lc_sources_reselected_IC86.hdf'
     submit_cfg_file = 'XRB_Analysis/XRB/submitter_config_npx'
     overlap_file = '/home/ssclafani/XRB_Analysis/XRB/cut_tracks_inds.npy'
-
+    template_file = '/data/ana/analyses/NuSources/2021_DNNCascade_analyses/templates/Fermi-LAT_pi0_map.npy'
+    gp_filenames = ['/data/user/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
+                    '/data/user/ssclafani/GP_injected_trials/trial_cascades_IC86.npy']
 
 # path at which source catalogs are located
 catalog_dir = os.path.join(
@@ -110,7 +121,7 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh, inje
             range_lag=(-7.,7.),
             #range_thresh=(0.,.5),
             sig='lc',
-            concat_evs=True,
+            concat_evs=False,
             extra_keep = ['energy'],
             #concat_evs=False,
             use_grl=True,
@@ -129,7 +140,7 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh, inje
             lcs=lc,
             range_lag=(-7.,7.),
             sig='lc',
-            concat_evs=True,
+            concat_evs=False,
             extra_keep = ['energy'],
             n_seeds_thresh=20,
             n_seeds_lag = 20,
@@ -142,8 +153,7 @@ def get_ps_config(ana, name, src_gamma, fix_gamma, cutoff_GeV, lag, thresh, inje
                         threshs=thresh, 
                         lags=lag, 
                         flux = cy.hyp.PowerLawFlux(gamma=src_gamma),
-                        gp_filenames = ['/data/user/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
-                              '/data/user/ssclafani/GP_injected_trials/trial_cascades_IC86.npy'])
+                        gp_filenames = gp_filenames)
     else:
         inj_conf=dict(lcs=lc, threshs=thresh, lags=lag, flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
 
@@ -330,8 +340,7 @@ def get_stacking_config(ana, src_gamma, fix_gamma, thresh, lag, weight, inject_g
                         threshs=np.zeros_like(lcs), 
                         lags=np.zeros_like(lcs), 
                         flux = cy.hyp.PowerLawFlux(gamma=src_gamma),
-                        gp_filenames = ['/data/user/ssclafani/GP_injected_trials/trial_tracks_IC86.npy',
-                              '/data/user/ssclafani/GP_injected_trials/trial_cascades_IC86.npy'])
+                        gp_filenames = gp_filenames)
     else:
         inj_conf=dict(lcs=lcs, threshs=np.zeros_like(lcs), lags=np.zeros_like(lcs), flux = cy.hyp.PowerLawFlux(gamma=src_gamma))
 
