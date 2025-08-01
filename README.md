@@ -70,4 +70,9 @@ will run 100 background trials (injecting the GP) and 100 signal trials at ns = 
 the trials take a lot of time to run.  I have presaved the trials for all the parameters that can be used to calculate sensitvity, discovery potential and plot biases.
 
 These are available here: 
-/data/user/ssclafani/
+
+
+`/data/user/ssclafani/data/analyses/XRB_baseline_v1.0/combo/lc/stacking/TSD_chi2.dict`
+
+`/data/user/ssclafani/data/analyses/XRB_baseline_v1.0/combo/lc/TSD_chi2.dict`
+
