@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# This script is used for sensitivity analysis in XRB (X-ray binaries) using the csky framework.
 
 import csky as cy
 import numpy as np
@@ -20,54 +21,90 @@ submit_cfg_file = cg.submit_cfg_file
 overlap_file = cg.overlap_file
 template_file = cg.template_file
 
-class State (object):
-    def __init__ (self, ana_name, ana_dir, save,  base_dir, gp_downsample):
+class State (object): 
+    """
+    A class representing the state of an analysis with universal parameters.
+
+    This class encapsulates the configuration and methods necessary to manage 
+    different types of analyses, including the ability to save results and 
+    apply specific techniques such as downsampling.
+
+    Attributes:
+    - ana_name (str): Name of the analysis.
+    - ana_dir (str): Directory where analysis data is stored.
+    - save (bool): Option to save analysis objects.
+    - base_dir (str): Base directory for the project.
+    - gp_downsample (bool): Option to enable the Galactic Plane "downsample" technique.
+    - template_file (str): Path to the template file for the analysis (necessary for Downsample PDFs).
+    """
+
+    def __init__ (self, ana_name, ana_dir, save, base_dir, gp_downsample):
+        """
+        Initializes the State object with the given parameters.
+
+        Parameters:
+        - ana_name (str): Name of the analysis.
+        - ana_dir (str): Directory where analysis data is stored.
+        - save (bool): Option to save analysis objects.
+        - base_dir (str): Base directory for the project.
+        - gp_downsample (bool): Option to enable the Galactic Plane "downsample" technique.
+        """
         self.ana_name, self.ana_dir, self.save = ana_name, ana_dir, save
         self.base_dir = base_dir
         self.gp_downsample = gp_downsample 
         self.template_file = template_file
+
     @property
     def ana (self):
+        """
+        Retrieves the analysis object based on the specified analysis name.
+
+        Depending on the value of `ana_name`, this method fetches the appropriate 
+        analysis data specifications, processes the data, and optionally saves 
+        the results to the specified directory.
+
+        Returns:
+        - The analysis object corresponding to the specified analysis name.
+        """
         print(self.ana_name)
         if self.ana_name == 'combo':
             print(repo.local_root)
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_12yr
             psspec = cy.selections.PSDataSpecs.ps_v4_15yr[3:]
-            ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec,
-                        )
+            ana = cy.get_analysis(repo, 'version-004-p03', psspec, 'version-001-p02', cspec)
             ind_list = np.load(overlap_file)
             ana[0].data = cy.utils.Arrays(
-                        ana[0].data.as_dataframe.drop(
-                        labels=ind_list, 
-                        errors='ignore', #ignore events that are not present since we are just using IC86
-                        ))
+                ana[0].data.as_dataframe.drop(
+                    labels=ind_list, 
+                    errors='ignore',  # Ignore events that are not present since we are just using IC86
+                ))
             if self.save:
-                cy.utils.ensure_dir (self.ana_dir)
-                ana.save (self.ana_dir)
+                cy.utils.ensure_dir(self.ana_dir)
+                ana.save(self.ana_dir)
             ana.name = self.ana_name
             self._ana = ana
         elif self.ana_name == 'dnnc':
             cspec = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             ana = cy.get_analysis(repo, 'version-001-p01', cspec)
             if self.save:
-                cy.utils.ensure_dir (self.ana_dir)
-                ana.save (self.ana_dir)
+                cy.utils.ensure_dir(self.ana_dir)
+                ana.save(self.ana_dir)
             ana.name = self.ana_name
             self._ana = ana
         elif self.ana_name == 'gfu':
             spec = cy.selections.GFUDataSpecs.gfu_IC86_2018
             ana = cy.get_analysis(repo, 'version-002-p05', spec)
             if self.save:
-                cy.utils.ensure_dir (self.ana_dir)
-                ana.save (self.ana_dir)
+                cy.utils.ensure_dir(self.ana_dir)
+                ana.save(self.ana_dir)
             ana.name = self.ana_name
             self._ana = ana
         elif self.ana_name == 'tracks':
             psspec = cy.selections.PSDataSpecs.ps_v4
             ana = cy.get_analysis(repo, 'version-004-p02', psspec)
             if self.save:
-                cy.utils.ensure_dir (self.ana_dir)
-                ana.save (self.ana_dir)
+                cy.utils.ensure_dir(self.ana_dir)
+                ana.save(self.ana_dir)
             ana.name = self.ana_name
             self._ana = ana
         else:
@@ -79,13 +116,20 @@ class State (object):
                 cy.utils.get_gp_prob(a, 
                     norm=2.18e-18, 
                     gamma=2.7, 
-                    template_file=template_file,
+                    template_file=self.template_file,
                     bins=[np.linspace(2,8,50), np.linspace(-1,1,50)])
 
         return self._ana
 
     @property
     def state_args (self):
+        """
+        Constructs command-line arguments for the analysis state.
+
+        Returns:
+        - str: A formatted string containing the command-line arguments 
+               for the analysis state.
+        """
         return '--ana {} --ana-dir {} --base-dir {} --gp_downsample {}'.format (
             self.ana_name, self.ana_dir, self.base_dir, self.gp_downsample)
 
@@ -129,72 +173,110 @@ def setup_ana (state):
 @click.option ('--save_trials/--nosave_trials', default=False)
 @click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
-def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed,
-    cutoff,  cpus, save_trials, inject_gp, logging=True):
+def do_lc_trials(state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed,
+                  cutoff, cpus, save_trials, inject_gp, logging=True):
+    """
+    Perform individual trials for for XRB sources with lightcurve pdf.
+
+    Parameters:
+    - state: analysis state variables 
+    - name: The name of the source.
+    - n_trials: The number of trials to run.
+    - fix_gamma: Fixed gamma value if provided (False).
+    - src_gamma: Source gamma value.
+    - thresh: Threshold value for analysis.
+    - lag: Lag time for analysis.
+    - n_sig: Number of signal events to inject.
+    - poisson: Boolean flag if injecting via Poisson statistics.
+    - seed: Random seed for reproducibility.
+    - cutoff: Exponential cutoff energy in TeV.
+    - cpus: Number of CPUs to use for parallel processing.
+    - save_trials: Boolean flag to save trial results.
+    - inject_gp: Boolean flag to enable Galactic Plane in background.
+    - logging: Boolean flag to enable logging.
+    """
+    
     ana = state.ana
     if inject_gp:
         gp_inj_str = 'gp_inj'
     else:
         gp_inj_str = 'no_gpinj'
+    
+    # Set the random seed if not provided
     if seed is None:
-        seed = int (time.time () % 2**32)
-    random = cy.utils.get_random (seed)
+        seed = int(time.time() % 2**32)
+    
+    random = cy.utils.get_random(seed)
    
     cutoff_GeV = cutoff * 1e3 
     print(seed)
-    conf, inj_conf  =  cg.get_ps_config(
-                                ana,
-                                name, 
-                                src_gamma, 
-                                fix_gamma, 
-                                cutoff_GeV, 
-                                lag, 
-                                thresh,
-                                inject_gp = inject_gp
-                                ) 
+    
+    # Get the configuration for the analysis
+    conf, inj_conf = cg.get_ps_config(
+        ana,
+        name, 
+        src_gamma, 
+        fix_gamma, 
+        cutoff_GeV, 
+        lag, 
+        thresh,
+        inject_gp=inject_gp
+    ) 
+    
+    # Initialize the trial runner
     tr = cy.get_trial_runner(
-                        conf=conf,
-                        inj_conf = inj_conf, 
-                        ana=ana, 
-                        flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
-                        mp_cpus=cpus, 
-                        dir=dir
-                        )
+        conf=conf,
+        inj_conf=inj_conf, 
+        ana=ana, 
+        flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff=cutoff_GeV), 
+        mp_cpus=cpus, 
+        dir=dir
+    )
 
-    t0 = now ()
-    print ('Beginning trials at {} ...'.format (t0))
-    flush ()
-    trials = tr.get_many_fits (
-        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging)
-    t1 = now ()
-    print ('Finished trials at {} ...'.format (t1))
-    print (trials if n_sig else cy.dists.Chi2TSD (trials))
-    print (t1 - t0, 'elapsed.')
-    flush ()
+    # Start timing the trials
+    t0 = now()
+    print('Beginning trials at {} ...'.format(t0))
+    flush()
+    
+    # Run the trials and get the results
+    trials = tr.get_many_fits(
+        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging
+    )
+    
+    # End timing the trials
+    t1 = now()
+    print('Finished trials at {} ...'.format(t1))
+    print(trials if n_sig else cy.dists.Chi2TSD(trials))
+    print(t1 - t0, 'elapsed.')
+    flush()
+    
+    # Determine the output directory based on parameters
     if n_sig:
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir (
-                    '{}/{}/lc/{}/trials/fix_gamma_{}/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
-                        state.base_dir, state.ana_name, name, fix_gamma, gp_inj_str, src_gamma, thresh, lag, cutoff,
-                          n_sig))
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/{}/trials/fix_gamma_{}/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format(
+                    state.base_dir, state.ana_name, name, fix_gamma, gp_inj_str, src_gamma, thresh, lag, cutoff,
+                    n_sig))
         else:
-            out_dir = cy.utils.ensure_dir (
-                '{}/{}/lc/{}/trials/fit_gamma/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format (
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/{}/trials/fit_gamma/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/nsig/{}'.format(
                     state.base_dir, state.ana_name, name, gp_inj_str, src_gamma, thresh, lag, cutoff,
-                      n_sig))
+                    n_sig))
     else:        
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/{}/trials/fix_gamma_{}/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
-                state.base_dir, state.ana_name, name, fix_gamma, gp_inj_str, src_gamma, thresh, lag, cutoff))
- 
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/{}/trials/fix_gamma_{}/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format(
+                    state.base_dir, state.ana_name, name, fix_gamma, gp_inj_str, src_gamma, thresh, lag, cutoff))
         else:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/{}/trials/fit_gamma/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format (
-                state.base_dir, state.ana_name, name,  gp_inj_str, src_gamma, thresh, lag, cutoff))
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/{}/trials/fit_gamma/{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/bg'.format(
+                    state.base_dir, state.ana_name, name, gp_inj_str, src_gamma, thresh, lag, cutoff))
 
-    out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
+    # Save the trial results to a file
+    out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format(
         out_dir, n_trials, seed)
-    print ('-> {}'.format (out_file))
-    np.save (out_file, trials.as_array)
+    print('-> {}'.format(out_file))
+    np.save(out_file, trials.as_array)
 
 
 @cli.command()
@@ -211,82 +293,153 @@ def do_lc_trials ( state, name, n_trials, fix_gamma, src_gamma, thresh, lag, n_s
 @click.option ('--weight',  default='equal')
 @click.option ('--inject_gp/--noinject_gp',  default=False)
 @pass_state
-def do_stacking_trials ( state, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff, cpus, weight, inject_gp, logging = True):
+def do_stacking_trials(state, n_trials, fix_gamma, src_gamma, thresh, lag, n_sig, poisson, seed, cutoff, cpus, weight, inject_gp, logging=True):
+    """
+    Perform stacking trials for XRB analysis.
+
+    Parameters:
+    - state: The current state of the analysis.
+    - n_trials (int): Number of trials to perform (default: 1000).
+    - fix_gamma (float or None): Fixed gamma value for the analysis (default: None).
+    - src_gamma (float): Source gamma value (default: 2.0).
+    - thresh (float): Threshold value for the analysis (default: 0.0).
+    - lag (float): Lag time for the analysis (default: 0.0).
+    - n_sig (float): Number of signal events to inject (default: 0).
+    - poisson (bool): Whether to use Poisson statistics (default: True).
+    - seed (int or None): Random seed for reproducibility (default: None).
+    - cutoff (float): Exponential cutoff energy in TeV (default: np.inf).
+    - cpus (int): Number of CPUs to use for parallel processing (default: 1).
+    - weight (str): Weighting scheme for the trials (default: 'equal').
+    - inject_gp (bool): Whether to inject Gaussian processes (default: False).
+    - logging (bool): Whether to enable logging (default: True).
+
+    This function initializes the analysis, sets up the trial runner, and performs the stacking trials,
+    saving the results to a specified directory based on the parameters provided.
+    """
+    
+    # Initialize the analysis state
     ana = state.ana
     if seed is None:
-        seed = int (time.time () % 2**32)
-    random = cy.utils.get_random (seed)
-    if inject_gp:
-        gp_inj_str = 'gp_inj'
-    else:
-        gp_inj_str = 'no_gpinj'
+        seed = int(time.time() % 2**32)
+    
+    random = cy.utils.get_random(seed)
+    
+    # Determine the injection string based on the inject_gp option
+    gp_inj_str = 'gp_inj' if inject_gp else 'no_gpinj'
+    
+    # Convert cutoff energy from TeV to GeV
     cutoff_GeV = cutoff * 1e3 
 
+    # Get stacking configuration
     conf, inj_conf = cg.get_stacking_config(
-                                    ana,
-                                    src_gamma, 
-                                    fix_gamma, 
-                                    thresh, 
-                                    lag,
-                                    weight,
-                                    inject_gp = inject_gp 
-                                    )
+        ana,
+        src_gamma, 
+        fix_gamma, 
+        thresh, 
+        lag,
+        weight,
+        inject_gp=inject_gp 
+    )
+    
+    # Initialize the trial runner
     tr = cy.get_trial_runner(
-                            conf=conf,  
-                            inj_conf=inj_conf, 
-                            ana=ana,
-                            flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
-                            dir=dir)
-    t0 = now ()
-    print ('Beginning trials at {} ...'.format (t0))
-    flush ()
-    trials = tr.get_many_fits (
-        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging, mp_cpus = cpus)
+        conf=conf,  
+        inj_conf=inj_conf, 
+        ana=ana,
+        flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff=cutoff_GeV), 
+        dir=dir
+    )
+    
+    # Start timing the trials
+    t0 = now()
+    print('Beginning trials at {} ...'.format(t0))
+    flush()
+    
+    # Perform the trials
+    trials = tr.get_many_fits(
+        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging, mp_cpus=cpus
+    )
+    
+    # Output results
     print(f'TS: {trials.ts}')
     print(f'ns: {trials.ns}')
     if 'gamma' in trials.keys():
         print(f'Gamma: {trials.gamma}')
-    t1 = now ()
-    print ('Finished trials at {} ...'.format (t1))
-    print (trials if n_sig else cy.dists.Chi2TSD (trials))
+    
+    # End timing the trials
+    t1 = now()
+    print('Finished trials at {} ...'.format(t1))
+    print(trials if n_sig else cy.dists.Chi2TSD(trials))
     print(np.median(trials['ns']))
-    print (t1 - t0, 'elapsed.')
-    flush ()
+    print(t1 - t0, 'elapsed.')
+    flush()
+    
+    # Determine output directory based on parameters
     if n_sig:
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir (
-                    '{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/nsig/{}/'.format (
-                        state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, gp_inj_str,
-                          n_sig))
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/stacking/trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/nsig/{}/'.format(
+                    state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, gp_inj_str, n_sig
+                )
+            )
         else:
-            out_dir = cy.utils.ensure_dir (
-                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/nsig/{}'.format (
-                    state.base_dir, state.ana_name,  src_gamma, thresh, lag, cutoff, weight, gp_inj_str,
-                      n_sig))
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/nsig/{}'.format(
+                    state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight, gp_inj_str, n_sig
+                )
+            )
     else:        
         if fix_gamma:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking//trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}{}//bg'.format (
-                state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, weight, gp_inj_str))
- 
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/stacking//trials/fix_gamma_{}/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}{}//bg'.format(
+                    state.base_dir, state.ana_name, fix_gamma, src_gamma, thresh, lag, cutoff, weight, gp_inj_str
+                )
+            )
         else:
-            out_dir = cy.utils.ensure_dir ('{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/bg'.format (
-                state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight, gp_inj_str))
+            out_dir = cy.utils.ensure_dir(
+                '{}/{}/lc/stacking/trials/fit_gamma/src_gamma_{}/thresh_{}/lag_{}/cutoff_{}/weight_{}/{}/bg'.format(
+                    state.base_dir, state.ana_name, src_gamma, thresh, lag, cutoff, weight, gp_inj_str
+                )
+            )
+    
+    # Save the results if specified
     if state.save:
-        out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
-            out_dir, n_trials, seed)
-        print ('-> {}'.format (out_file))
-        np.save (out_file, trials.as_array)
+        out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format(
+            out_dir, n_trials, seed
+        )
+        print('-> {}'.format(out_file))
+        np.save(out_file, trials.as_array)
 
 
-@cli.command ()
-@click.option ('--fit/--nofit', default=True)
-@click.option ('--hist/--nohist', default=False)
-@click.option ('-n', '--n', default=0, type=int)
+@cli.command()
+@click.option('--fit/--nofit', default=True, help="Enable fitting of the light curves.")
+@click.option('--hist/--nohist', default=False, help="Enable histogram generation.")
+@click.option('-n', '--n', default=0, type=int, help="Minimum number of trials required.")
 @pass_state
-def collect_lc_trials (state, fit, hist, n):
+def collect_lc_trials(state, fit, hist, n):
+    """
+    Collect light curve trials for sources defined in the source file.
+
+    This function reads source data from an HDF file, processes light curve trials
+    based on the specified options (fit, hist), and saves the results to a dictionary
+    file. The trials can be processed as either binned histograms or chi-squared fits.
+
+    Parameters:
+    state (State): The state object containing base directory and analysis name.
+    fit (bool): Flag to indicate if fitting should be performed.
+    hist (bool): Flag to indicate if histogram generation should be performed.
+    n (int): Minimum number of trials required for processing.
+
+    Returns:
+    None
+    """
+    
+    # Read source data from the specified HDF file
     sources = pd.read_hdf(cg.source_file)
     names = sources.name_disp
     kw = {}
+    
+    # Determine the type of TSD to use based on the options provided
     if hist:
         TSD = cy.dists.BinnedTSD
         suffix = '_hist'
@@ -297,36 +450,40 @@ def collect_lc_trials (state, fit, hist, n):
     else:
         TSD = cy.dists.TSD
         suffix = ''
-    combined_outfile = '{}/{}/lc/TSD{}.dict'.format (
-        state.base_dir, state.ana_name,  suffix)
+    
+    # Define the output file path for combined results
+    combined_outfile = '{}/{}/lc/TSD{}.dict'.format(state.base_dir, state.ana_name, suffix)
     bg = {}
-    bgs = {}                                                                    
-    for name in names:    
-        outfile = '{}/{}/lc/{}/TSD{}.dict'.format (
-            state.base_dir, state.ana_name, name, suffix)
+    bgs = {}
+    
+    # Iterate over each source name to collect trials
+    for name in names:
+        outfile = '{}/{}/lc/{}/TSD{}.dict'.format(state.base_dir, state.ana_name, name, suffix)
         key = name 
-        print ('\r{} ...'.format (key))
-        #flush ()
+        print('\r{} ...'.format(key))
+        
+        # Print the current processing path
         print('{}/{}/lc/{}'.format(state.base_dir, state.ana_name, key))
-        #if (not bg['dec'][dec_deg]) or bg['dec'][dec_deg].n_total < n:
-        #print('{}/dec/{}/'.format(bg_dir, key))
-        #print(cy.bk.get_all ('{}/dec/{}/'.format (bg_dir, key), '*.npy', merge=np.concatenate))
-        post_convert = (lambda x: TSD (cy.utils.Arrays (x), **kw))
-        bgs['{}'.format(key)] = cy.bk.get_all('{}/{}/lc/{}/trials/'.format(state.base_dir, state.ana_name, key),'trials*.npy', 
+        
+        # Define a post-conversion function for the trials
+        post_convert = (lambda x: TSD(cy.utils.Arrays(x), **kw))
+        
+        # Collect all trials for the current source
+        bgs['{}'.format(key)] = cy.bk.get_all('{}/{}/lc/{}/trials/'.format(state.base_dir, state.ana_name, key), 'trials*.npy', 
                           merge=np.concatenate, post_convert=post_convert)
-        #bg['name'] = bgs             
-        #print ('\rDone.' + 20 * ' ')
-        #flush ()
-        #print ('->', outfile)
-        #with open (outfile, 'wb') as f:
-        #     pickle.dump (bg, f, -1)
+    
+    # Print the keys of the collected background trials
     print(bgs.keys())
     bg['name'] = bgs             
-    print ('\rDone.' + 20 * ' ')
-    flush ()
-    print ('->', combined_outfile)
-    with open (combined_outfile, 'wb') as f:
-         pickle.dump (bg, f, -1)
+    print('\rDone.' + 20 * ' ')
+    flush()
+    
+    # Print the path of the combined output file
+    print('->', combined_outfile)
+    
+    # Save the collected background trials to the combined output file
+    with open(combined_outfile, 'wb') as f:
+         pickle.dump(bg, f, -1)
 
 @cli.command ()
 @click.option ('--fit/--nofit', default=True)
@@ -334,30 +491,58 @@ def collect_lc_trials (state, fit, hist, n):
 @click.option ('-n', '--n', default=0, type=int)
 @pass_state
 def collect_stacking_trials (state, fit, hist, n):
+"""
+    Collect stacking trials for sources defined in the source file.
+
+    This function reads source data from an HDF file, processes light curve trials
+    based on the specified options (fit, hist), and saves the results to a dictionary
+    file. The trials can be processed as either binned histograms or chi-squared fits.
+
+    Parameters:
+    state (State): The state object containing base directory and analysis name.
+    fit (bool): Flag to indicate if fitting should be performed.
+    hist (bool): Flag to indicate if histogram generation should be performed.
+    n (int): Minimum number of trials required for processing.
+
+    Returns:
+    None
+    """
     kw = {}
+    # Determine the type of TSD based on the user's choice of histogram or fitting
     if hist:
-        TSD = cy.dists.BinnedTSD
-        suffix = '_hist'
-        kw['keep_trials'] = False
+        TSD = cy.dists.BinnedTSD  # Use BinnedTSD for histogram generation
+        suffix = '_hist'  # Suffix for output file
+        kw['keep_trials'] = False  # Do not keep trials for histogram
     elif fit:
-        TSD = cy.dists.Chi2TSD
-        suffix = '_chi2'
+        TSD = cy.dists.Chi2TSD  # Use Chi2TSD for fitting
+        suffix = '_chi2'  # Suffix for output file
     else:
-        TSD = cy.dists.TSD
-        suffix = ''
-    outfile = '{}/{}/lc/stacking/TSD{}.dict'.format (
-        state.base_dir, state.ana_name,  suffix)
-    bg = {}
-    bgs = {}                                            
-    print('{}/{}/lc/'.format(state.base_dir, state.ana_name))
-    post_convert = (lambda x: TSD (cy.utils.Arrays (x), **kw))
-    bg = cy.bk.get_all('{}/{}/lc/stacking/trials/'.format(state.base_dir, state.ana_name),'trials*.npy', 
-                      merge=np.concatenate, post_convert=post_convert)
-    print ('\rDone.' + 20 * ' ')
-    flush ()
-    print ('->', outfile)
-    with open (outfile, 'wb') as f:
-         pickle.dump (bg, f, -1)
+        TSD = cy.dists.TSD  # Default TSD
+        suffix = ''  # No suffix for output file
+
+    # Define the output file path for saving results
+    outfile = '{}/{}/lc/stacking/TSD{}.dict'.format(
+        state.base_dir, state.ana_name, suffix)
+    
+    bg = {}  # Background dictionary to store results
+    bgs = {}  # Additional background dictionary (currently unused)
+    
+    print('{}/{}/lc/'.format(state.base_dir, state.ana_name))  # Print the directory path
+    
+    # Function to convert data using the selected TSD
+    post_convert = (lambda x: TSD(cy.utils.Arrays(x), **kw))
+    
+    # Retrieve all trials and apply the post-conversion function
+    bg = cy.bk.get_all('{}/{}/lc/stacking/trials/'.format(state.base_dir, state.ana_name), 'trials*.npy', 
+                       merge=np.concatenate, post_convert=post_convert)
+    
+    print('\rDone.' + 20 * ' ')  # Indicate completion
+    flush()  # Flush the output buffer
+    print('->', outfile)  # Print the output file path
+    
+    # Save the background results to a file
+    with open(outfile, 'wb') as f:
+        pickle.dump(bg, f, -1)  # Use pickle to serialize the background data
 
 
 @cli.command ()
@@ -392,7 +577,7 @@ def submit_do_lc_trials (
     fix_gammas = [fix_gamma] 
     
     sources = pd.read_hdf(cg.source_file)
-    names = sources.name_disp
+    names = sources.name_disp[30:]
     #names = ['Swift_J1745_dot_1_dash_2624']
     if fix_gamma:
         for name in names:
@@ -523,41 +708,64 @@ def submit_do_stacking_trials (
 @click.option ('--weight', default = 'equal')
 @click.option ('--save/--nosave', default=False)
 @pass_state
-def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, weight, logging=True, save=False):
+def find_stacking_nsig(state, fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, weight, logging=True, save=False):
+    """
+    Find the number of signal events in a stacking analysis.
+
+    This function performs a stacking analysis to determine the number of signal events 
+    based on the provided parameters. It utilizes background trials and calculates the 
+    sensitivity of the signal based on the specified thresholds and gamma values.
+
+    Parameters:
+    - state: The current state of the analysis.
+    - fix_gamma (float or None): The fixed gamma value for the analysis. If None, the function will fit gamma.
+    - src_gamma (float): The source gamma value for the analysis.
+    - nsigma (float or None): The number of sigma for the sensitivity calculation. If None, sensitivity is calculated.
+    - thresh (float): The threshold value for the analysis.
+    - lag (float): The lag value for the analysis.
+    - cutoff (float): The exponential cutoff energy in TeV.
+    - cpus (int): The number of CPUs to use for the analysis.
+    - weight (str): The weighting method to use ('equal' or other).
+    - logging (bool): Whether to log the output.
+    - save (bool): Whether to save the results.
+
+    Returns:
+    - None: The function prints the results and saves them if specified.
+    """
     ana = state.ana
     cutoff_GeV = 1e3 * cutoff
-    sigfile = '{}/{}/lc/stacking/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
-    sig = np.load (sigfile, allow_pickle=True)
+    sigfile = '{}/{}/lc/stacking/TSD_chi2.dict'.format(state.base_dir, state.ana_name)
+    sig = np.load(sigfile, allow_pickle=True)
     print(sig)
     if fix_gamma:
-        sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                'thresh_{}'.format(thres), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
-        b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma),  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
+        sig_trials = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma), 'src_gamma_{}'.format(src_gamma),
+                                     'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
+        b = cy.bk.get_best(sig, 'fix_gamma_{}'.format(fit_gamma), 'src_gamma_{}'.format(src_gamma),
+                           'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
     else:
         print('fit gamma')
-        sig_trials = cy.bk.get_best(sig, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
-    
-        b = cy.bk.get_best(sig,  'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
+        sig_trials = cy.bk.get_best(sig, 'fit_gamma', 'src_gamma_{}'.format(src_gamma),
+                                     'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'no_gpinj', 'nsig')
+
+        b = cy.bk.get_best(sig, 'fit_gamma', 'src_gamma_{}'.format(src_gamma),
+                           'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'gp_inj', 'bg')
     if logging:
         print(b)
     conf, inj_conf = cg.get_stacking_config(
-                                    ana,
-                                    src_gamma, 
-                                    fix_gamma, 
-                                    thresh, 
-                                    lag,
-                                    weight)
+        ana,
+        src_gamma,
+        fix_gamma,
+        thresh,
+        lag,
+        weight)
     tr = cy.get_trial_runner(
-                            conf=conf,  
-                            inj_conf=inj_conf, 
-                            ana=ana,
-                            flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
-                            dir=dir)
-        # determine ts threshold
-    if nsigma !=None:
+        conf=conf,
+        inj_conf=inj_conf,
+        ana=ana,
+        flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff=cutoff_GeV),
+        dir=dir)
+    # determine ts threshold
+    if nsigma is not None:
         beta = 0.5
         print('sigma = {}'.format(nsigma))
         ts = b.isf_nsigma(nsigma)
@@ -565,7 +773,7 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
         print('Getting sensitivity')
         beta = 0.9
         ts = b.median()
-    
+
     # include background trials in calculation
     trials = {0: b}
     trials.update(sig_trials)
@@ -574,11 +782,11 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
     # get number of signal events
     # (arguments prevent additional trials from being run)
     result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=logging, trials=trials)
-    
+
     f = tr.to_E2dNdE(result['n_sig'], E0=1, unit=1e3)
     if logging:
         print(ts, beta, result['n_sig'], f)
-    print(f) 
+    print(f)
     print(result['n_sig'])
     result['flux_E2dNdE_1TeV'] = f
     if save:
@@ -589,21 +797,44 @@ def find_stacking_nsig ( state,fix_gamma, src_gamma, nsigma, thresh, lag, cutoff
             np.save(f'{state.base_dir}/{state.ana_name}/lc/stacking/trials/fit_gamma/src_gamma_{src_gamma}/weight/{weight}/sens.npy', result)
 
 @cli.command()
-@click.option ('--name', default=None)
-@click.option ('--fix_gamma', default=None)
-@click.option ('--src_gamma', default=2.0, type=float)
-@click.option ('--nsigma', default=None, type=float)
-@click.option ('--thresh', default=0.0, type=float)
-@click.option ('--lag', default=0.0, type=float)
-@click.option ('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
-@click.option ('--cpus', default=1, type=int)
-@click.option ('--save/--nosave', default=False)
+@click.option('--name', default=None)
+@click.option('--fix_gamma', default=None)
+@click.option('--src_gamma', default=2.0, type=float)
+@click.option('--nsigma', default=None, type=float)
+@click.option('--thresh', default=0.0, type=float)
+@click.option('--lag', default=0.0, type=float)
+@click.option('--cutoff', default=np.inf, type=float, help='exponential cutoff energy, (TeV)')
+@click.option('--cpus', default=1, type=int)
+@click.option('--save/--nosave', default=False)
 @pass_state
 def find_lc_nsig(
-    state, name, fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save= False, sens = True):
+    state, name, fix_gamma, src_gamma, nsigma, thresh, lag, cutoff, cpus, logging=True, save=False, sens=True):
+    """
+    Find the sensitivity of the light curve based on the provided parameters.
+
+    Parameters:
+    - state: The current state containing analysis information.
+    - name: The name of the source to analyze. If None, all sources will be analyzed.
+    - fix_gamma: Fixed gamma value for the analysis.
+    - src_gamma: Source gamma value (default is 2.0).
+    - nsigma: Number of sigma for sensitivity calculation.
+    - thresh: Threshold value for the analysis (default is 0.0).
+    - lag: Lag time for the analysis (default is 0.0).
+    - cutoff: Exponential cutoff energy in TeV (default is infinity).
+    - cpus: Number of CPUs to use for the analysis (default is 1).
+    - logging: Boolean flag to enable logging (default is True).
+    - save: Boolean flag to save the results (default is False).
+    - sens: Boolean flag to indicate if sensitivity should be calculated (default is True).
+
+    This function loads signal and bkg tirals,
+    and calculates the sensitivity or discovery potential for the specified sources.
+    Results can be saved to disk if the save flag is set to True.
+    Iterates over all sources if name is not provided.
+    """
+    
     ana = state.ana
     cutoff_GeV = 1e3 * cutoff
-    sigfile = '{}/{}/lc/TSD_chi2.dict'.format (state.base_dir, state.ana_name)
+    sigfile = '{}/{}/lc/TSD_chi2.dict'.format(state.base_dir, state.ana_name)
 
     if name:
         name_list = [name]
@@ -612,31 +843,35 @@ def find_lc_nsig(
         sources = pd.read_hdf(cg.source_file)
         name_list = sources.name_disp
         print(name_list) 
+
+    # Iterate over each source name (just one if name is provided)
     for name in name_list:
-        sig = np.load (sigfile, allow_pickle=True)
+        sig = np.load(sigfile, allow_pickle=True)
         print(name)
         print(sig['name'][name])
+        
         if fix_gamma:
             if sig['name'][name]:
                 sig_trials = cy.bk.get_best(sig, 'name', name, 'fix_gamma_{}'.format(fix_gamma), 'src_gamma_{}'.format(src_gamma),
-                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
+                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'no_gpinj', 'nsig')
                 try:
                     b = cy.bk.get_best(sig, 'name', name, 'fix_gamma_{}'.format(fix_gamma), 'src_gamma_{}'.format(src_gamma),
-                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'bg')
+                                        'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'gp_inj', 'bg')
                 except:
-                    print( 0,0)
+                    print(0, 0)
             else:
-                print( 0, 0)
+                print(0, 0)
         else:
-            print('fit gamma')
-            try: 
-                sig_trials = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'src_gamma_{}'.format(src_gamma), 
+            try:
+                sig_trials = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'no_gpinj', 'src_gamma_{}'.format(src_gamma), 
                             'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff), 'nsig')
-                b = cy.bk.get_best(sig, 'name', name, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff_GeV), 'bg')
+                b = cy.bk.get_best(sig, 'name', name, 'fit_gamma', 'gp_inj',  'src_gamma_2.0'.format(src_gamma),
+                                'thresh_{}'.format(thresh), 'lag_{}'.format(lag), 'cutoff_{}'.format(cutoff_GeV),  'bg')
                 if logging:
                     print(b)
-                conf, inj_conf  =  cg.get_ps_config(
+                
+                # Get configuration for sensitivity calculation
+                conf, inj_conf = cg.get_ps_config(
                                             ana,
                                             name, 
                                             src_gamma, 
@@ -645,15 +880,18 @@ def find_lc_nsig(
                                             lag, 
                                             thresh
                                             ) 
+                
+                # Initialize trial runner
                 tr = cy.get_trial_runner(
                                     conf=conf,
-                                    inj_conf = inj_conf, 
+                                    inj_conf=inj_conf, 
                                     ana=ana, 
-                                    flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff = cutoff_GeV), 
+                                    flux=cy.hyp.PowerLawFlux(src_gamma, energy_cutoff=cutoff_GeV), 
                                     mp_cpus=cpus, 
                                     dir=dir
                                     )
-                if nsigma !=None:
+                
+                if nsigma is not None:
                     beta = 0.5
                     print('sigma = {}'.format(nsigma))
                     ts = b.isf_nsigma(nsigma)
@@ -661,31 +899,36 @@ def find_lc_nsig(
                     print('Getting sensitivity')
                     beta = 0.9
                     ts = b.median()
-                #print(ts)
 
-                # include background trials in calculation
+                # Include background trials in calculation
                 trials = {0: b}
                 trials.update(sig_trials)
                 for key in trials.keys():
                     trials[key] = trials[key].trials
-                # get number of signal events
-                # (arguments prevent additional trials from being run)
                 
+                # Get number of signal events
                 result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=logging, trials=trials)
+                
+                # Convert to flux
                 flux = tr.to_E2dNdE(result['n_sig'], E0=1, unit=1e3)
-                #flux = tr.to_dNdE(result['n_sig'], E0=1, unit=1e3)
-                # return flux
+                
                 if logging:
                     print(ts, beta, result['n_sig'], flux)
+                
                 sens[name] = flux
                 result['flux_E2dNdE_1TeV'] = flux
+                
+                # Save results if the save flag is set
                 if save:
                     if nsigma:
-                        np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/{nsigma}sigma_dp.npy', result)
+                        np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/no_gpinj/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/{nsigma}sigma_dp.npy', result)
                     else:
-                        np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy', result)
+                        print('saving..')
+                        np.save(f'{state.base_dir}/{state.ana_name}/lc/{name}/trials/fit_gamma/no_gpinj/src_gamma_{src_gamma}/thresh_{thresh}/lag_{lag}/sens.npy', result)
             except:
-                pass 
+                print('skipping...')
+    
+    # Save total results
     if save and not name:
         if nsigma:
             np.save(f'{state.base_dir}/{state.ana_name}/lc/dp{nsigma}sig_lag_{lag}_thresh_{thresh}.npy', sens)
@@ -718,10 +961,10 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
     else:
         print('fit gamma')
         sig_trials = cy.bk.get_best(sig, 'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'nsig')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'no_gpinj', 'nsig')
     
         b = cy.bk.get_best(sig,  'fit_gamma',  'src_gamma_{}'.format(src_gamma),
-                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'bg')
+                                                    'thresh_{}'.format(thresh), 'lag_{}'.format(lag),  'cutoff_{}'.format(cutoff), 'weight_{}'.format(weight), 'gp_inj', 'bg')
     if logging:
         print(b)
     
@@ -790,9 +1033,12 @@ def plot_stacking_bias ( state,fix_gamma, src_gamma, thresh, lag, cutoff, cpus, 
         except(FileNotFoundError):
             pass 
     for ax in axs:
-        ax.set_xlim(0,50)
-    axs[0].set_ylim(0,50)
-
+        if src_gamma == 2.0:
+            ax.set_xlim(0,50)
+            axs[0].set_ylim(0,50)
+        else:
+            ax.set_xlim(0,100)
+            axs[0].set_ylim(0,100)
     plt.suptitle(f'Weight {weight} $\gamma$={src_gamma:.2}')
     plt.tight_layout()
     if save:
