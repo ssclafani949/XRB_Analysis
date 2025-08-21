@@ -141,7 +141,7 @@ pass_state = click.make_pass_decorator (State)
 @click.option ('--save/--nosave', default=True)
 @click.option ('--base-dir', default=base_dir,
                type=click.Path (file_okay=False, writable=True))
-@click.option ('--gp_downsample/--nogp_downsample', default=True)
+@click.option ('--gp_downsample/--nogp_downsample', default=False)
 @click.pass_context
 def cli (ctx, ana_name, ana_dir, save, base_dir, gp_downsample):
     ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir, gp_downsample)
@@ -491,7 +491,7 @@ def collect_lc_trials(state, fit, hist, n):
 @click.option ('-n', '--n', default=0, type=int)
 @pass_state
 def collect_stacking_trials (state, fit, hist, n):
-"""
+    """
     Collect stacking trials for sources defined in the source file.
 
     This function reads source data from an HDF file, processes light curve trials
